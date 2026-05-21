@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrap">
+
+  <!-- ── HERO GREETING ─────────────────────── -->
+  <div class="dash-hero">
+    <div class="dash-hero-text">
+      <h1 class="dash-greeting" id="greeting">Good morning,</h1>
+      <p class="dash-subtext">
+        {% if current_user.role == 'super_admin' %}
+          Here's your Geospatial Maven project overview.
+        {% elif current_user.role == 'developer' %}
+          Here are your assigned projects and tasks.
+        {% else %}
+          Here's the latest progress on your projects.
+        {% endif %}
+      </p>
+    </div>
+    {% if current_user.role != 'client' %}
+    <a href="{{ url_for('projects_list') }}" class="btn-primary-glow">
+      <i class="bi bi-plus-lg"></i> New Project
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- ── KPI CARDS ──────────────────────────── -->
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kc:#6366f1">
+      <div class="kpi-icon"><i class="bi bi-folder2-open"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ total_projects }}</div>
+        <div class="kpi-label">Total Projects</div>
+      </div>
+      <div class="kpi-bg-icon"><i class="bi bi-folder2-open"></i></div>
+    </div>
+    <div class="kpi-card" style="--kc:#10b981">
+      <div class="kpi-icon"><i class="bi bi-play-circle"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ active_count }}</div>
+        <div class="kpi-label">Active Projects</div>
+      </div>
+      <div class="kpi-bg-icon"><i class="bi bi-play-circle"></i></div>
+    </div>
+    <div class="kpi-card" style="--kc:#3b82f6">
+      <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ completed_count }}</div>
+        <div class="kpi-label">Completed</div>
+      </div>
+      <div class="kpi-bg-icon"><i class="bi bi-check-circle"></i></div>
+    </div>
+    {% if current_user.role != 'client' %}
+    <div class="kpi-card" style="--kc:{% if overdue_tasks|length > 0 %}#ef4444{% else %}#10b981{% endif %}">
+      <div class="kpi-icon"><i class="bi bi-{% if overdue_tasks|length > 0 %}exclamation-triangle{% else %}check2-all{% endif %}"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ overdue_tasks|length }}</div>
+        <div class="kpi-label">Overdue Tasks</div>
+      </div>
+      <div class="kpi-bg-icon"><i class="bi bi-clock-history"></i></div>
+    </div>
+    {% else %}
+    <div class="kpi-card" style="--kc:#f59e0b">
+      <div class="kpi-icon"><i class="bi bi-bar-chart-steps"></i></div>
+      <div class="kpi-body">
+        {% set avg_prog = namespace(n=0) %}
+        {% for p in projects %}{% set avg_prog.n = avg_prog.n + p.overall_progress %}{% endfor %}
+        <div class="kpi-value">{% if projects|length > 0 %}{{ (avg_prog.n / projects|length)|int }}%{% else %}—{% endif %}</div>
+        <div class="kpi-label">Avg Progress</div>
+      </div>
+      <div class="kpi-bg-icon"><i class="bi bi-bar-chart-steps"></i></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── CONTENT ROW ─────────────────────────── -->
+  <div class="dash-row">
+
+    <!-- Recent Projects -->
+    <div class="dash-panel dash-panel-lg">
+      <div class="panel-header">
+        <h3 class="panel-title"><i class="bi bi-folder2-open"></i> Recent Projects</h3>
+        <a href="{{ url_for('projects_list') }}" class="panel-link">View all <i class="bi bi-arrow-right"></i></a>
+      </div>
+      {% if projects %}
+      <div class="project-list-mini">
+        {% for p in projects %}
+        <a href="{{ url_for('project_detail', project_id=p.id) }}" class="project-mini-card">
+          <div class="pmc-left">
+            <div class="pmc-status-dot" style="background:{{ p.status_color }}"></div>
+            <div>
+              <div class="pmc-name">{{ p.name }}</div>
+              <div class="pmc-meta">
+                <span class="badge-pill" style="--bc:{{ p.status_color }}">{{ p.status|replace('_',' ')|title }}</span>
+                <span class="pmc-client">{{ p.client_name or 'Internal' }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="pmc-right">
+            <div class="pmc-progress-wrap">
+              <div class="pmc-progress-bar">
+                <div class="pmc-progress-fill" style="width:{{ p.overall_progress }}%;background:{{ p.status_color }}"></div>
+              </div>
+              <span class="pmc-pct">{{ p.overall_progress }}%</span>
+            </div>
+            {% if p.days_remaining() is not none %}
+            <div class="pmc-days {% if p.days_remaining() < 0 %}overdue{% elif p.days_remaining() < 14 %}urgent{% endif %}">
+              {% if p.days_remaining() < 0 %}
+                <i class="bi bi-exclamation-circle"></i> {{ (-p.days_remaining()) }}d overdue
+              {% elif p.status == 'completed' %}
+                <i class="bi bi-check-circle"></i> Done
+              {% else %}
+                <i class="bi bi-clock"></i> {{ p.days_remaining() }}d left
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-folder-plus"></i>
+        <p>No projects yet. <a href="{{ url_for('projects_list') }}">Create one!</a></p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Right column -->
+    <div class="dash-panel-stack">
+
+      <!-- Upcoming Milestones -->
+      <div class="dash-panel">
+        <div class="panel-header">
+          <h3 class="panel-title"><i class="bi bi-flag"></i> Upcoming Milestones</h3>
+        </div>
+        {% if upcoming_milestones %}
+        <div class="milestone-list">
+          {% for ms in upcoming_milestones %}
+          <div class="milestone-item">
+            <div class="milestone-dot {% if ms.status == 'reached' %}reached{% endif %}"></div>
+            <div class="milestone-body">
+              <div class="ms-title">{{ ms.title }}</div>
+              <div class="ms-meta">{{ ms.project.name[:35] }}{% if ms.project.name|length > 35 %}…{% endif %}</div>
+            </div>
+            <div class="ms-date {% if ms.date < today %}overdue{% endif %}">
+              {{ ms.date.strftime('%d %b') if ms.date else '—' }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state-sm">
+          <i class="bi bi-flag"></i> No upcoming milestones
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Status Chart -->
+      <div class="dash-panel">
+        <div class="panel-header">
+          <h3 class="panel-title"><i class="bi bi-pie-chart"></i> Project Status</h3>
+        </div>
+        <div class="chart-container-sm">
+          <canvas id="statusChart"></canvas>
+        </div>
+        <div class="chart-legend-inline">
+          <span class="cl-item" style="--cc:#6366f1"><i></i>Planning: {{ planning_count }}</span>
+          <span class="cl-item" style="--cc:#10b981"><i></i>Active: {{ active_count }}</span>
+          <span class="cl-item" style="--cc:#3b82f6"><i></i>Completed: {{ completed_count }}</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── TEAM / OVERDUE ──────────────────────── -->
+  {% if current_user.role == 'super_admin' and users %}
+  <div class="dash-panel mt-4">
+    <div class="panel-header">
+      <h3 class="panel-title"><i class="bi bi-people"></i> Team Members</h3>
+      <a href="{{ url_for('team') }}" class="panel-link">Manage <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="team-grid">
+      {% for u in users[:8] %}
+      <div class="team-mini-card">
+        <div class="team-avatar" style="background:{{ u.avatar_color }}">{{ u.get_initials() }}</div>
+        <div class="team-info">
+          <div class="team-name">{{ u.name }}</div>
+          <div class="team-spec">{{ u.specialization[:30] if u.specialization else u.department or '—' }}{% if u.specialization and u.specialization|length > 30 %}…{% endif %}</div>
+          <span class="badge-pill" style="--bc:{{ u.role_color }}">{{ u.role_label }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if overdue_tasks and current_user.role != 'client' %}
+  <div class="dash-panel mt-4">
+    <div class="panel-header">
+      <h3 class="panel-title" style="color:#ef4444"><i class="bi bi-exclamation-triangle"></i> Overdue Tasks ({{ overdue_tasks|length }})</h3>
+      <a href="{{ url_for('my_tasks') }}" class="panel-link">My tasks <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="table-wrap">
+      <table class="gm-table">
+        <thead><tr><th>Task</th><th>Section</th><th>Due</th><th>Assigned To</th><th>Priority</th></tr></thead>
+        <tbody>
+          {% for t in overdue_tasks[:8] %}
+          <tr>
+            <td><span class="task-title-cell">{{ t.title }}</span></td>
+            <td><span class="text-muted-sm">{{ t.section.name[:30] if t.section else '—' }}</span></td>
+            <td><span class="text-danger-sm">{{ t.due_date.strftime('%d %b %Y') if t.due_date else '—' }}</span></td>
+            <td>
+              {% if t.assigned_to %}
+              <div class="mini-avatar-row">
+                <div class="mini-avatar" style="background:{{ t.assigned_to.avatar_color }}">{{ t.assigned_to.get_initials() }}</div>
+                {{ t.assigned_to.name }}
+              </div>
+              {% else %}—{% endif %}
+            </td>
+            <td><span class="priority-badge" style="--pc:{{ t.priority_color }}">{{ t.priority|title }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Greeting
+  const h = new Date().getHours();
+  const greet = h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
+  document.getElementById('greeting').textContent = greet + ' {{ current_user.name.split()[0] }}!';
+
+  // Status donut chart
+  const ctx = document.getElementById('statusChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Planning', 'Active', 'Completed'],
+      datasets: [{
+        data: [{{ planning_count }}, {{ active_count }}, {{ completed_count }}],
+        backgroundColor: ['#6366f1', '#10b981', '#3b82f6'],
+        borderColor: 'transparent',
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.raw}` } } },
+      animation: { animateRotate: true, duration: 1000 }
+    }
+  });
+</script>
+{% endblock %}

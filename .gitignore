@@ -1,0 +1,12 @@
+instance/
+__pycache__/
+*.pyc
+*.db
+.env
+venv/
+.venv/
+*.egg-info/
+
+# Accomplished Projects folder is too large for git (images/data files)
+# It works locally only — gallery shows placeholder on the live server
+Accomplished Projects/

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Team{% endblock %}
+{% block page_title %}Team Management{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+  <div class="page-header">
+    <div>
+      <h2 class="page-h2">Team Members</h2>
+      <p class="page-sub">{{ users|length }} member{% if users|length != 1 %}s{% endif %} across all roles</p>
+    </div>
+    <button class="btn-primary-glow" onclick="openModal('addUserModal')">
+      <i class="bi bi-person-plus"></i> Add Member
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="kpi-grid kpi-grid-3">
+    <div class="kpi-card" style="--kc:#6366f1">
+      <div class="kpi-icon"><i class="bi bi-shield-check"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ users|selectattr('role','eq','super_admin')|list|length }}</div>
+        <div class="kpi-label">Administrators</div>
+      </div>
+    </div>
+    <div class="kpi-card" style="--kc:#10b981">
+      <div class="kpi-icon"><i class="bi bi-code-slash"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ users|selectattr('role','eq','developer')|list|length }}</div>
+        <div class="kpi-label">Developers / Analysts</div>
+      </div>
+    </div>
+    <div class="kpi-card" style="--kc:#f59e0b">
+      <div class="kpi-icon"><i class="bi bi-person-fill"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ users|selectattr('role','eq','client')|list|length }}</div>
+        <div class="kpi-label">Clients</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Team Cards -->
+  <div class="team-cards-grid">
+    {% for u in users %}
+    <div class="team-card {% if not u.is_active %}inactive{% endif %}">
+      <div class="tc-avatar-wrap">
+        <div class="tc-avatar" style="background:{{ u.avatar_color }}">{{ u.get_initials() }}</div>
+        <div class="tc-status-dot {% if u.is_active %}online{% endif %}"></div>
+      </div>
+      <div class="tc-body">
+        <div class="tc-name">{{ u.name }}</div>
+        <div class="tc-email">{{ u.email }}</div>
+        <span class="badge-pill" style="--bc:{{ u.role_color }}">{{ u.role_label }}</span>
+        {% if u.department %}<div class="tc-dept"><i class="bi bi-building"></i> {{ u.department }}</div>{% endif %}
+        {% if u.specialization %}<div class="tc-spec"><i class="bi bi-geo-alt"></i> {{ u.specialization[:50] }}{% if u.specialization|length > 50 %}…{% endif %}</div>{% endif %}
+        {% if u.phone %}<div class="tc-phone"><i class="bi bi-telephone"></i> {{ u.phone }}</div>{% endif %}
+        {% if u.last_login %}<div class="tc-login"><i class="bi bi-clock"></i> Last login: {{ u.last_login.strftime('%d %b %Y') }}</div>{% endif %}
+      </div>
+      <div class="tc-footer">
+        {% if not u.is_active %}<span class="inactive-badge">Inactive</span>{% endif %}
+        <button class="btn-ghost-xs" onclick="toggleUser({{ u.id }}, this)"
+                title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}">
+          <i class="bi bi-{% if u.is_active %}pause-circle{% else %}play-circle{% endif %}"></i>
+          {% if u.is_active %}Deactivate{% else %}Activate{% endif %}
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="gm-modal-backdrop" id="addUserModal">
+  <div class="gm-modal">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-person-plus"></i> Add Team Member</h3>
+      <button onclick="closeModal('addUserModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="POST" action="{{ url_for('add_user') }}">
+      <div class="gm-modal-body">
+        <div class="form-grid-2">
+          <div><label class="fl">Full Name *</label><input type="text" name="name" class="fi" required placeholder="e.g. Ahmed Raza"></div>
+          <div><label class="fl">Email *</label><input type="email" name="email" class="fi" required placeholder="ahmed@geospatialmaven.com"></div>
+          <div>
+            <label class="fl">Role *</label>
+            <select name="role" class="fi" required>
+              <option value="developer">Developer / Analyst</option>
+              <option value="super_admin">Super Admin</option>
+              <option value="client">Client</option>
+            </select>
+          </div>
+          <div><label class="fl">Department</label><input type="text" name="department" class="fi" placeholder="GIS Analysis"></div>
+          <div><label class="fl">Phone</label><input type="text" name="phone" class="fi" placeholder="+92-300-0000000"></div>
+          <div><label class="fl">Specialization</label><input type="text" name="specialization" class="fi" placeholder="Remote Sensing, ArcGIS, QGIS…"></div>
+          <div><label class="fl">Password</label><input type="password" name="password" class="fi" value="changeme123"></div>
+        </div>
+      </div>
+      <div class="gm-modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeModal('addUserModal')">Cancel</button>
+        <button type="submit" class="btn-primary-glow"><i class="bi bi-person-plus"></i> Add Member</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleUser(userId, btn) {
+  fetch(`/team/users/${userId}/toggle`, {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) location.reload();
+    });
+}
+</script>
+{% endblock %}

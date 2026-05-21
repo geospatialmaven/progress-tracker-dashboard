@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Accomplished Projects{% endblock %}
+{% block page_title %}Accomplished Projects{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div>
+      <h2 class="page-h2">Accomplished Projects</h2>
+      <p class="page-sub">{{ total }} completed GIS & Remote Sensing projects</p>
+    </div>
+    {% if current_user.role == 'super_admin' %}
+    <button class="btn-primary-glow" id="importAllBtn" onclick="importAll()">
+      <i class="bi bi-cloud-download"></i> Import All to DB
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Stats bar -->
+  <div class="accomplished-stats-bar">
+    {% set total_images = namespace(n=0) %}
+    {% set total_excel = namespace(n=0) %}
+    {% for p in projects %}
+      {% set total_images.n = total_images.n + p.stats.images %}
+      {% set total_excel.n = total_excel.n + p.stats.excels %}
+    {% endfor %}
+    <div class="astat"><i class="bi bi-folder2-open" style="color:#10b981"></i> <strong>{{ total }}</strong> Projects</div>
+    <div class="astat"><i class="bi bi-image" style="color:#6366f1"></i> <strong>{{ total_images.n }}</strong> Maps & Charts</div>
+    <div class="astat"><i class="bi bi-file-earmark-spreadsheet" style="color:#f59e0b"></i> <strong>{{ total_excel.n }}</strong> Data Tables</div>
+    <div class="astat"><i class="bi bi-check-circle-fill" style="color:#10b981"></i> All <strong>Completed</strong></div>
+  </div>
+
+  <!-- Project grid -->
+  <div class="accomplished-grid">
+    {% for p in projects %}
+    <div class="acc-card" id="acc-card-{{ loop.index }}">
+
+      <!-- Cover image -->
+      <div class="acc-cover">
+        {% if p.stats.cover %}
+        <img src="{{ url_for('serve_accomplished', filepath=p.name + '/' + p.stats.cover) }}"
+             alt="{{ p.name }}" loading="lazy" onerror="this.parentElement.classList.add('no-img')">
+        {% else %}
+        <div class="acc-cover-placeholder"><i class="bi bi-map"></i></div>
+        {% endif %}
+        <div class="acc-cover-overlay">
+          <a href="{{ url_for('accomplished_project', folder_name=p.name) }}" class="acc-view-btn">
+            <i class="bi bi-grid"></i> View Gallery
+          </a>
+        </div>
+        {% if p.in_db %}
+        <div class="acc-db-badge"><i class="bi bi-database-check"></i> In DB</div>
+        {% endif %}
+      </div>
+
+      <!-- Card body -->
+      <div class="acc-body">
+        <div class="acc-type-badge" title="{{ p.type }}">{{ p.type }}</div>
+        <h3 class="acc-name">{{ p.name }}</h3>
+        <div class="acc-meta">
+          <span><i class="bi bi-geo-alt"></i> {{ p.country }}</span>
+          <span><i class="bi bi-check-circle" style="color:#10b981"></i> Completed</span>
+        </div>
+        <div class="acc-file-stats">
+          {% if p.stats.images > 0 %}
+          <span class="fstat fstat-img"><i class="bi bi-image"></i> {{ p.stats.images }} maps</span>
+          {% endif %}
+          {% if p.stats.excels > 0 %}
+          <span class="fstat fstat-xl"><i class="bi bi-file-earmark-spreadsheet"></i> {{ p.stats.excels }} tables</span>
+          {% endif %}
+          {% if p.stats.docs > 0 %}
+          <span class="fstat fstat-doc"><i class="bi bi-file-earmark-text"></i> {{ p.stats.docs }} docs</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Card footer -->
+      <div class="acc-footer">
+        <a href="{{ url_for('accomplished_project', folder_name=p.name) }}" class="btn-ghost-xs">
+          <i class="bi bi-folder2-open"></i> Browse Files
+        </a>
+        {% if current_user.role != 'client' %}
+        {% if p.in_db %}
+        <a href="{{ url_for('project_detail', project_id=p.db_id) }}" class="btn-ghost-xs" style="color:var(--primary)">
+          <i class="bi bi-box-arrow-up-right"></i> View in DB
+        </a>
+        {% else %}
+        <button class="btn-ghost-xs import-btn" data-name="{{ p.name }}" data-idx="{{ loop.index }}"
+                onclick="importProject(this)" title="Add to project database">
+          <i class="bi bi-cloud-download"></i> Import
+        </button>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function importProject(btn) {
+  const name = btn.dataset.name;
+  const idx = btn.dataset.idx;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing…';
+  fetch(`/accomplished/import/${encodeURIComponent(name)}`, {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        btn.innerHTML = '<i class="bi bi-check-circle" style="color:#10b981"></i> Imported!';
+        const card = document.getElementById('acc-card-' + idx);
+        if (card) {
+          const footer = card.querySelector('.acc-footer');
+          if (footer) {
+            const a = document.createElement('a');
+            a.href = '/projects/' + d.id;
+            a.className = 'btn-ghost-xs';
+            a.style.color = 'var(--primary)';
+            a.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> View in DB';
+            btn.replaceWith(a);
+          }
+          const dbBadge = document.createElement('div');
+          dbBadge.className = 'acc-db-badge';
+          dbBadge.innerHTML = '<i class="bi bi-database-check"></i> In DB';
+          card.querySelector('.acc-cover').appendChild(dbBadge);
+        }
+        showToast(`"${name}" imported to database!`);
+      }
+    });
+}
+
+function importAll() {
+  if (!confirm('Import all 21 accomplished projects to the database as completed projects?')) return;
+  const btn = document.getElementById('importAllBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Importing…';
+  fetch('/accomplished/import-all', {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Done!';
+        showToast(`Imported ${d.imported} projects (${d.skipped} already existed)`);
+        setTimeout(() => location.reload(), 1500);
+      }
+    });
+}
+</script>
+
+<style>
+.accomplished-stats-bar {
+  display: flex; gap: 2rem; align-items: center;
+  padding: 1rem 1.5rem; background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 1.5rem; flex-wrap: wrap;
+}
+.astat { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--text-secondary); }
+.astat strong { color: var(--text-primary); }
+
+.accomplished-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+.acc-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+  transition: var(--transition);
+  display: flex; flex-direction: column;
+}
+.acc-card:hover { border-color: var(--border-2); transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+
+.acc-cover {
+  width: 100%; height: 200px; background: var(--bg-surface-2);
+  position: relative; overflow: hidden; flex-shrink: 0;
+}
+.acc-cover img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform .4s ease;
+}
+.acc-card:hover .acc-cover img { transform: scale(1.04); }
+.acc-cover-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 4rem; color: var(--text-muted);
+  background: linear-gradient(135deg, var(--bg-surface-2), var(--bg-surface-3));
+}
+.acc-cover.no-img::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(16,185,129,.05), rgba(99,102,241,.05));
+}
+.acc-cover-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .2s;
+}
+.acc-card:hover .acc-cover-overlay { opacity: 1; }
+.acc-view-btn {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem 1.25rem; background: var(--primary);
+  color: #fff; text-decoration: none; border-radius: var(--radius-sm);
+  font-weight: 600; font-size: .875rem;
+  transform: translateY(8px); transition: transform .2s;
+}
+.acc-card:hover .acc-view-btn { transform: translateY(0); }
+.acc-db-badge {
+  position: absolute; top: .6rem; right: .6rem;
+  background: rgba(16,185,129,.2); border: 1px solid rgba(16,185,129,.35);
+  color: #10b981; padding: .2rem .55rem; border-radius: 20px;
+  font-size: .72rem; font-weight: 700; backdrop-filter: blur(8px);
+  display: flex; align-items: center; gap: .3rem;
+}
+
+.acc-body { padding: 1rem; flex: 1; }
+.acc-type-badge {
+  display: inline-block; font-size: .72rem; font-weight: 600;
+  padding: .15rem .6rem; border-radius: 20px; margin-bottom: .5rem;
+  background: var(--primary-glow); color: var(--primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.acc-name {
+  font-size: .95rem; font-weight: 700; color: var(--text-primary);
+  line-height: 1.4; margin-bottom: .5rem;
+}
+.acc-meta {
+  display: flex; gap: .75rem; font-size: .78rem;
+  color: var(--text-secondary); margin-bottom: .6rem; flex-wrap: wrap;
+}
+.acc-meta span { display: flex; align-items: center; gap: .3rem; }
+.acc-file-stats { display: flex; gap: .4rem; flex-wrap: wrap; }
+.fstat {
+  display: flex; align-items: center; gap: .3rem;
+  padding: .15rem .5rem; border-radius: 20px;
+  font-size: .72rem; font-weight: 600;
+}
+.fstat-img { background: rgba(99,102,241,.12); color: var(--secondary); }
+.fstat-xl  { background: rgba(245,158,11,.12); color: var(--accent); }
+.fstat-doc { background: rgba(59,130,246,.12); color: var(--info); }
+
+.acc-footer {
+  padding: .75rem 1rem; border-top: 1px solid var(--border);
+  display: flex; gap: .5rem; align-items: center;
+  background: var(--bg-surface-2);
+}
+</style>
+{% endblock %}

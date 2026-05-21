@@ -1,0 +1,1135 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block page_title %}{{ project.name[:40] }}{% if project.name|length > 40 %}…{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-wrap project-detail">
+
+  <!-- ── PROJECT HERO ────────────────────────── -->
+  <div class="project-hero" style="--pcolor:{{ project.status_color }}">
+    <div class="hero-left">
+      <div class="hero-code">{{ project.code }}</div>
+      <h1 class="hero-title">{{ project.name }}</h1>
+      <div class="hero-meta-row">
+        <span class="badge-pill" style="--bc:{{ project.status_color }}">
+          <i class="bi bi-circle-fill" style="font-size:.5rem"></i> {{ project.status|replace('_',' ')|title }}
+        </span>
+        <span class="badge-pill" style="--bc:{{ project.priority_color }}">
+          <i class="bi bi-flag"></i> {{ project.priority|title }} Priority
+        </span>
+        {% if project.project_type %}
+        <span class="badge-pill" style="--bc:#6b7280"><i class="bi bi-layers"></i> {{ project.project_type }}</span>
+        {% endif %}
+        {% if project.client_name %}
+        <span class="badge-pill" style="--bc:#6b7280"><i class="bi bi-building"></i> {{ project.client_name }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-progress-ring">
+        <svg viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+          <circle cx="40" cy="40" r="32" fill="none" stroke="{{ project.status_color }}"
+                  stroke-width="6" stroke-linecap="round"
+                  stroke-dasharray="{{ (project.overall_progress / 100 * 201)|int }} 201"
+                  transform="rotate(-90 40 40)"/>
+        </svg>
+        <div class="ring-text">
+          <span class="ring-pct">{{ project.overall_progress }}%</span>
+          <span class="ring-label">Done</span>
+        </div>
+      </div>
+      <div class="hero-stats">
+        {% if project.days_remaining() is not none %}
+        <div class="hstat">
+          <div class="hstat-val {% if project.days_remaining() < 0 and project.status != 'completed' %}text-danger{% elif project.days_remaining() < 14 %}text-warning{% endif %}">
+            {% if project.status == 'completed' %}✓{% else %}{{ project.days_remaining() }}{% endif %}
+          </div>
+          <div class="hstat-label">{% if project.status == 'completed' %}Done{% else %}Days left{% endif %}</div>
+        </div>
+        {% endif %}
+        <div class="hstat">
+          <div class="hstat-val">{{ sections|length }}</div>
+          <div class="hstat-label">Sections</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-val">{{ task_stats.completed }}/{{ task_stats.total }}</div>
+          <div class="hstat-label">Tasks done</div>
+        </div>
+        <div class="hstat">
+          {% set budget_pct = ((project.budget_actual / project.budget_estimated * 100)|int) if project.budget_estimated > 0 else 0 %}
+          <div class="hstat-val">${{ '{:,.0f}'.format(project.budget_estimated or 0) }}</div>
+          <div class="hstat-label">Budget</div>
+        </div>
+      </div>
+      {% if current_user.role != 'client' %}
+      <button class="btn-ghost-sm" onclick="openModal('editProjectModal')">
+        <i class="bi bi-pencil"></i> Edit
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── TABS ───────────────────────────────── -->
+  <div class="tab-bar">
+    <a class="tab-item active" href="#overview" data-tab="overview"><i class="bi bi-grid-3x3-gap"></i> Overview</a>
+    <a class="tab-item" href="#tor" data-tab="tor"><i class="bi bi-file-text"></i> TOR</a>
+    <a class="tab-item" href="#timeline" data-tab="timeline"><i class="bi bi-calendar3"></i> Timeline</a>
+    <a class="tab-item" href="#objectives" data-tab="objectives"><i class="bi bi-target"></i> Objectives</a>
+    <a class="tab-item" href="#sections" data-tab="sections"><i class="bi bi-layout-text-sidebar-reverse"></i> Sections</a>
+    <a class="tab-item" href="#budget" data-tab="budget"><i class="bi bi-currency-dollar"></i> Budget</a>
+    <a class="tab-item" href="#team" data-tab="team"><i class="bi bi-people"></i> Team</a>
+  </div>
+
+  <!-- ───────── TAB: OVERVIEW ───────── -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="overview-grid">
+      <div class="ov-card ov-main">
+        <h4 class="ov-section-title">Project Description</h4>
+        <p class="ov-desc">{{ project.description or 'No description provided.' }}</p>
+        {% if project.tags %}
+        <div class="ov-tags">
+          {% for t in project.tags.split(',') %}
+          <span class="pc-tag">{{ t.strip() }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="ov-details-grid">
+          <div class="ov-detail"><span>Location</span><strong>{{ project.location or '—' }}{% if project.country %}, {{ project.country }}{% endif %}</strong></div>
+          <div class="ov-detail"><span>Type</span><strong>{{ project.project_type or '—' }}</strong></div>
+          <div class="ov-detail"><span>Start Date</span><strong>{{ project.start_date.strftime('%d %B %Y') if project.start_date else '—' }}</strong></div>
+          <div class="ov-detail"><span>End Date</span><strong>{{ project.end_date.strftime('%d %B %Y') if project.end_date else '—' }}</strong></div>
+          <div class="ov-detail"><span>Coordinator</span><strong>{{ project.coordinator.name if project.coordinator else '—' }}</strong></div>
+          <div class="ov-detail"><span>Client Contact</span><strong>{{ project.client_user.name if project.client_user else project.client_name or '—' }}</strong></div>
+        </div>
+      </div>
+      <div class="ov-side">
+        <!-- Section progress -->
+        <div class="ov-card">
+          <h4 class="ov-section-title">Section Progress</h4>
+          {% if sections %}
+          <canvas id="sectionChart" height="200"></canvas>
+          {% else %}
+          <div class="empty-state-sm"><i class="bi bi-bar-chart"></i> No sections yet</div>
+          {% endif %}
+        </div>
+        <!-- Objective stats -->
+        <div class="ov-card">
+          <h4 class="ov-section-title">Objectives</h4>
+          <div class="obj-stat-row">
+            <div class="obj-stat"><div class="obj-stat-val">{{ obj_stats.total }}</div><div class="obj-stat-label">Total</div></div>
+            <div class="obj-stat"><div class="obj-stat-val" style="color:#10b981">{{ obj_stats.completed }}</div><div class="obj-stat-label">Done</div></div>
+            <div class="obj-stat"><div class="obj-stat-val" style="color:#3b82f6">{{ obj_stats.in_progress }}</div><div class="obj-stat-label">Active</div></div>
+            <div class="obj-stat"><div class="obj-stat-val" style="color:#6b7280">{{ obj_stats.pending }}</div><div class="obj-stat-label">Pending</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────── TAB: TOR ───────── -->
+  <div class="tab-content" id="tab-tor">
+    {% set tor = project.tor %}
+    {% if current_user.role != 'client' %}
+    <div class="tab-actions-bar">
+      <span class="tor-version">Version {{ tor.version if tor else '1.0' }} · Last updated {{ tor.last_updated.strftime('%d %b %Y') if tor and tor.last_updated else 'Never' }}</span>
+      <button class="btn-primary-glow btn-sm" onclick="document.getElementById('torForm').classList.toggle('hidden')">
+        <i class="bi bi-pencil"></i> Edit TOR
+      </button>
+    </div>
+    {% endif %}
+
+    <!-- TOR VIEW -->
+    {% if tor %}
+    <div class="tor-view" id="torView">
+      <div class="tor-hero">
+        <div class="tor-title-block">
+          <div class="tor-doc-icon"><i class="bi bi-file-earmark-text"></i></div>
+          <div>
+            <h2>Terms of Reference</h2>
+            <p>{{ project.name }}</p>
+          </div>
+        </div>
+        <div class="tor-meta-pills">
+          <span>{{ project.client_name or 'Geospatial Maven' }}</span>
+          <span>{{ project.start_date.strftime('%Y') if project.start_date else '2025' }}</span>
+          <span>v{{ tor.version }}</span>
+        </div>
+      </div>
+      {% set tor_sections = [
+        ('Background', tor.background, 'bi-journal-text'),
+        ('Purpose & Objectives', tor.purpose, 'bi-target'),
+        ('Scope of Work', tor.scope_of_work, 'bi-list-check'),
+        ('Specific Objectives', tor.specific_objectives, 'bi-bullseye'),
+        ('Deliverables', tor.deliverables, 'bi-box-seam'),
+        ('Methodology', tor.methodology, 'bi-diagram-3'),
+        ('Data Requirements', tor.data_requirements, 'bi-database'),
+        ('Software & Tools', tor.software_tools, 'bi-tools'),
+        ('Qualifications', tor.qualifications, 'bi-person-badge'),
+        ('Reporting Requirements', tor.reporting_requirements, 'bi-file-earmark-bar-graph'),
+        ('Timeline Notes', tor.timeline_notes, 'bi-calendar3'),
+      ] %}
+      <div class="tor-sections">
+        {% for title, content, icon in tor_sections %}
+        {% if content %}
+        <div class="tor-section">
+          <div class="tor-section-header"><i class="bi {{ icon }}"></i> {{ title }}</div>
+          <div class="tor-section-body">{{ content|replace('\n','<br>')|safe }}</div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state"><i class="bi bi-file-text"></i><p>No TOR created yet. Click Edit TOR to add one.</p></div>
+    {% endif %}
+
+    <!-- TOR EDIT FORM -->
+    {% if current_user.role != 'client' %}
+    <form method="POST" action="{{ url_for('update_tor', project_id=project.id) }}" class="tor-form hidden" id="torForm">
+      <div class="tor-form-header"><h4><i class="bi bi-pencil-square"></i> Edit Terms of Reference</h4></div>
+      <div class="tor-fields">
+        {% set tor_fields = [
+          ('background', 'Background', 'Project background and context…'),
+          ('purpose', 'Purpose & Objectives', 'Main purpose of this engagement…'),
+          ('scope_of_work', 'Scope of Work', 'Detailed scope of work…'),
+          ('specific_objectives', 'Specific Objectives', 'List specific measurable objectives…'),
+          ('deliverables', 'Deliverables', 'List all expected deliverables…'),
+          ('methodology', 'Methodology', 'Describe the technical approach and methodology…'),
+          ('data_requirements', 'Data Requirements', 'Specify satellite imagery, GIS data, field data needed…'),
+          ('software_tools', 'Software & Tools', 'ArcGIS Pro, QGIS, Google Earth Engine, Python…'),
+          ('qualifications', 'Qualifications Required', 'Team expertise and qualifications…'),
+          ('reporting_requirements', 'Reporting Requirements', 'Report formats, review cycles, submission timeline…'),
+          ('timeline_notes', 'Timeline Notes', 'Key timeline considerations…'),
+        ] %}
+        {% for fname, flabel, fhint in tor_fields %}
+        <div class="tor-field">
+          <label class="fl">{{ flabel }}</label>
+          <textarea name="{{ fname }}" class="fi" rows="4" placeholder="{{ fhint }}">{{ tor[fname] if tor and tor[fname] else '' }}</textarea>
+        </div>
+        {% endfor %}
+        <div class="tor-field" style="max-width:200px">
+          <label class="fl">Version</label>
+          <input type="text" name="version" class="fi" value="{{ tor.version if tor else '1.0' }}">
+        </div>
+      </div>
+      <div class="tor-form-footer">
+        <button type="button" class="btn-ghost" onclick="document.getElementById('torForm').classList.add('hidden')">Cancel</button>
+        <button type="submit" class="btn-primary-glow"><i class="bi bi-save"></i> Save TOR</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- ───────── TAB: TIMELINE ───────── -->
+  <div class="tab-content" id="tab-timeline">
+    {% if current_user.role != 'client' %}
+    <div class="tab-actions-bar">
+      <span class="text-muted-sm">Visual project timeline with milestones</span>
+      <button class="btn-primary-glow btn-sm" onclick="openModal('addMilestoneModal')">
+        <i class="bi bi-flag-plus"></i> Add Milestone
+      </button>
+    </div>
+    {% endif %}
+
+    <!-- Gantt Chart -->
+    {% if sections %}
+    <div class="gantt-wrap">
+      <h4 class="gantt-title">Project Gantt Chart</h4>
+      <div class="gantt-container" id="ganttContainer">
+        {% set proj_start = project.start_date %}
+        {% set proj_end = project.end_date %}
+        {% if proj_start and proj_end %}
+          {% set total_days = (proj_end - proj_start).days %}
+          <div class="gantt-header-row">
+            <div class="gantt-label-col">Section</div>
+            <div class="gantt-bar-col">
+              {% set months_shown = [] %}
+              <div class="gantt-date-labels">
+                {% for i in range(0, total_days, 14) %}
+                  {% set d = proj_start + timedelta(i) %}
+                  <span style="left:{{ (i/total_days*100)|round(1) }}%">{{ d.strftime('%d %b') }}</span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% for s in sections %}
+          <div class="gantt-row">
+            <div class="gantt-label">
+              <i class="bi {{ s.type_icon }}"></i>
+              <span>{{ s.name[:30] }}{% if s.name|length > 30 %}…{% endif %}</span>
+            </div>
+            <div class="gantt-bar-col">
+              <div class="gantt-today-line" style="left:{{ ((today - proj_start).days / total_days * 100)|round(1) }}%"></div>
+              {% if s.start_date and s.end_date %}
+                {% set bar_left = ((s.start_date - proj_start).days / total_days * 100) %}
+                {% set bar_width = ((s.end_date - s.start_date).days / total_days * 100) %}
+                <div class="gantt-bar" style="left:{{ [bar_left,0]|max|round(1) }}%;width:{{ [bar_width,2]|max|round(1) }}%;background:{{ s.type_color }}44;border-left:3px solid {{ s.type_color }}">
+                  <div class="gantt-bar-fill" style="width:{{ s.progress }}%;background:{{ s.type_color }}"></div>
+                  <span class="gantt-bar-label">{{ s.progress }}%</span>
+                </div>
+              {% else %}
+                <span class="text-muted-sm" style="padding-left:1rem">No dates set</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state-sm"><i class="bi bi-calendar3"></i> Set project start/end dates to see the Gantt chart.</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Milestones -->
+    <div class="milestones-section">
+      <h4 class="section-h4"><i class="bi bi-flag"></i> Milestones</h4>
+      {% if project.milestones %}
+      <div class="milestone-timeline">
+        {% for ms in project.milestones|sort(attribute='date') %}
+        <div class="ms-item {% if ms.status == 'reached' %}reached{% elif ms.date and ms.date < today %}missed{% endif %}">
+          <div class="ms-dot"><i class="bi bi-{% if ms.status == 'reached' %}check-circle-fill{% elif ms.date and ms.date < today %}x-circle-fill{% else %}circle{% endif %}"></i></div>
+          <div class="ms-content">
+            <div class="ms-title-row">
+              <span class="ms-name">{{ ms.title }}</span>
+              <span class="ms-status-badge status-{{ ms.status }}">{{ ms.status|title }}</span>
+            </div>
+            {% if ms.description %}<p class="ms-desc">{{ ms.description }}</p>{% endif %}
+            <span class="ms-date-label">{{ ms.date.strftime('%d %B %Y') if ms.date else '—' }}</span>
+          </div>
+          {% if current_user.role != 'client' %}
+          <div class="ms-actions">
+            {% if ms.status == 'upcoming' %}
+            <button class="icon-btn" title="Mark reached" onclick="updateMilestone({{ ms.id }}, 'reached')"><i class="bi bi-check-circle" style="color:#10b981"></i></button>
+            {% endif %}
+            <button class="icon-btn" title="Delete" onclick="deleteMilestone({{ ms.id }}, this)"><i class="bi bi-trash" style="color:#ef4444"></i></button>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state-sm"><i class="bi bi-flag"></i> No milestones yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ───────── TAB: OBJECTIVES ───────── -->
+  <div class="tab-content" id="tab-objectives">
+    <div class="tab-actions-bar">
+      <span class="text-muted-sm">{{ obj_stats.total }} objective{% if obj_stats.total != 1 %}s{% endif %} · {{ obj_stats.completed }} completed</span>
+      {% if current_user.role != 'client' %}
+      <button class="btn-primary-glow btn-sm" onclick="openModal('addObjectiveModal')">
+        <i class="bi bi-plus-lg"></i> Add Objective
+      </button>
+      {% endif %}
+    </div>
+    <div class="obj-columns">
+      <div class="obj-column">
+        <div class="obj-col-header" style="border-color:#6366f1">
+          <i class="bi bi-stars" style="color:#6366f1"></i> Primary Objectives
+        </div>
+        <div id="primaryObjList">
+          {% for o in objs if o.obj_type == 'primary' %}
+          <div class="obj-card" id="obj-{{ o.id }}">
+            <div class="obj-card-header">
+              <span class="obj-status-badge status-{{ o.status }}">
+                <i class="bi bi-{% if o.status == 'completed' %}check-circle-fill{% elif o.status == 'in_progress' %}play-circle-fill{% else %}circle{% endif %}"></i>
+                {{ o.status|replace('_',' ')|title }}
+              </span>
+              {% if current_user.role != 'client' %}
+              <div class="obj-actions">
+                <button class="icon-btn" onclick="cycleObjStatus({{ o.id }}, '{{ o.status }}')"><i class="bi bi-arrow-clockwise"></i></button>
+                <button class="icon-btn" onclick="deleteObjective({{ o.id }})"><i class="bi bi-trash" style="color:#ef4444"></i></button>
+              </div>
+              {% endif %}
+            </div>
+            <div class="obj-title">{{ o.title }}</div>
+            {% if o.description %}<p class="obj-desc">{{ o.description }}</p>{% endif %}
+            {% if o.target_date %}<div class="obj-date"><i class="bi bi-calendar-check"></i> Target: {{ o.target_date.strftime('%d %b %Y') }}</div>{% endif %}
+          </div>
+          {% else %}
+          <div class="empty-state-sm" id="noPrimary">No primary objectives yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="obj-column">
+        <div class="obj-col-header" style="border-color:#10b981">
+          <i class="bi bi-bookmark-star" style="color:#10b981"></i> Secondary Objectives
+        </div>
+        <div id="secondaryObjList">
+          {% for o in objs if o.obj_type == 'secondary' %}
+          <div class="obj-card" id="obj-{{ o.id }}">
+            <div class="obj-card-header">
+              <span class="obj-status-badge status-{{ o.status }}">
+                <i class="bi bi-{% if o.status == 'completed' %}check-circle-fill{% elif o.status == 'in_progress' %}play-circle-fill{% else %}circle{% endif %}"></i>
+                {{ o.status|replace('_',' ')|title }}
+              </span>
+              {% if current_user.role != 'client' %}
+              <div class="obj-actions">
+                <button class="icon-btn" onclick="cycleObjStatus({{ o.id }}, '{{ o.status }}')"><i class="bi bi-arrow-clockwise"></i></button>
+                <button class="icon-btn" onclick="deleteObjective({{ o.id }})"><i class="bi bi-trash" style="color:#ef4444"></i></button>
+              </div>
+              {% endif %}
+            </div>
+            <div class="obj-title">{{ o.title }}</div>
+            {% if o.description %}<p class="obj-desc">{{ o.description }}</p>{% endif %}
+            {% if o.target_date %}<div class="obj-date"><i class="bi bi-calendar-check"></i> Target: {{ o.target_date.strftime('%d %b %Y') }}</div>{% endif %}
+          </div>
+          {% else %}
+          <div class="empty-state-sm" id="noSecondary">No secondary objectives yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────── TAB: SECTIONS ───────── -->
+  <div class="tab-content" id="tab-sections">
+    <div class="tab-actions-bar">
+      <div class="section-type-legend">
+        {% for stype, color, icon in [('Analysis','#6366f1','bi-bar-chart-line'),('Write-up','#10b981','bi-pencil-square'),('Learning','#f59e0b','bi-book'),('Fieldwork','#ef4444','bi-geo-alt'),('Data Collection','#8b5cf6','bi-satellite'),('Reporting','#3b82f6','bi-file-earmark-text')] %}
+        <span class="legend-item" style="--lc:{{ color }}"><i class="bi {{ icon }}"></i> {{ stype }}</span>
+        {% endfor %}
+      </div>
+      {% if current_user.role != 'client' %}
+      <button class="btn-primary-glow btn-sm" onclick="openModal('addSectionModal')">
+        <i class="bi bi-plus-lg"></i> Add Section
+      </button>
+      {% endif %}
+    </div>
+
+    {% if sections %}
+    <div class="sections-list" id="sectionsList">
+      {% for sec in sections %}
+      <div class="section-card" id="section-card-{{ sec.id }}">
+        <div class="sec-header" style="--sc:{{ sec.type_color }}">
+          <div class="sec-header-left">
+            <div class="sec-type-icon" style="background:{{ sec.type_color }}22;color:{{ sec.type_color }}">
+              <i class="bi {{ sec.type_icon }}"></i>
+            </div>
+            <div>
+              <div class="sec-name">{{ sec.name }}</div>
+              <div class="sec-meta-row">
+                <span class="sec-type-badge" style="--sc:{{ sec.type_color }}">{{ sec.type_label }}</span>
+                <span class="sec-status-badge status-{{ sec.status }}">{{ sec.status|replace('_',' ')|title }}</span>
+                {% if sec.start_date %}<span class="sec-dates">{{ sec.start_date.strftime('%d %b') }}{% if sec.end_date %} → {{ sec.end_date.strftime('%d %b %Y') }}{% endif %}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="sec-header-right">
+            <div class="sec-progress-wrap">
+              <div class="sec-progress-bar">
+                <div class="sec-progress-fill" id="progFill-{{ sec.id }}" style="width:{{ sec.progress }}%;background:{{ sec.type_color }}"></div>
+              </div>
+              {% if current_user.role != 'client' %}
+              <input type="range" class="progress-slider" min="0" max="100" value="{{ sec.progress }}"
+                     data-section="{{ sec.id }}" oninput="updateProgress(this)">
+              {% endif %}
+              <span class="sec-pct" id="progPct-{{ sec.id }}">{{ sec.progress }}%</span>
+            </div>
+            <button class="sec-expand-btn" onclick="toggleSection({{ sec.id }})">
+              <i class="bi bi-chevron-down" id="chevron-{{ sec.id }}"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section body (collapsible) -->
+        <div class="sec-body" id="sec-body-{{ sec.id }}">
+          {% if sec.description %}
+          <p class="sec-desc-text">{{ sec.description }}</p>
+          {% endif %}
+
+          <!-- Assignees -->
+          {% if sec.assignments %}
+          <div class="sec-assignees">
+            <span class="sec-label">Assigned to:</span>
+            {% for a in sec.assignments %}
+            <div class="assignee-chip" style="--ac:{{ a.user.avatar_color }}">
+              <div class="assignee-avatar" style="background:{{ a.user.avatar_color }}">{{ a.user.get_initials() }}</div>
+              <span>{{ a.user.name }}</span>
+              <span class="assignee-role-tag">{{ a.assignment_role }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Tasks -->
+          <div class="tasks-section">
+            <div class="tasks-header">
+              <span class="tasks-title">
+                Tasks
+                <span class="tasks-count">{{ sec.tasks|selectattr('status','eq','completed')|list|length }}/{{ sec.tasks|length }}</span>
+              </span>
+              {% if current_user.role != 'client' %}
+              <button class="btn-ghost-xs" onclick="openAddTask({{ sec.id }}, '{{ sec.name|replace("'","\\'")|replace('"','&quot;') }}')">
+                <i class="bi bi-plus"></i> Add Task
+              </button>
+              {% endif %}
+            </div>
+            <div class="tasks-list" id="tasksList-{{ sec.id }}">
+              {% for t in sec.tasks %}
+              <div class="task-item" id="task-{{ t.id }}">
+                <div class="task-check">
+                  <input type="checkbox" class="task-cb" id="cb-{{ t.id }}"
+                         {% if t.status == 'completed' %}checked{% endif %}
+                         onchange="toggleTask({{ t.id }}, this)">
+                  <label for="cb-{{ t.id }}"></label>
+                </div>
+                <div class="task-body">
+                  <div class="task-title {% if t.status == 'completed' %}done{% endif %}">{{ t.title }}</div>
+                  <div class="task-meta">
+                    <span class="priority-badge" style="--pc:{{ t.priority_color }}">{{ t.priority|title }}</span>
+                    <span class="status-badge-sm status-{{ t.status }}">{{ t.status|replace('_',' ')|title }}</span>
+                    {% if t.assigned_to %}
+                    <div class="mini-avatar-row">
+                      <div class="mini-avatar mini-xs" style="background:{{ t.assigned_to.avatar_color }}">{{ t.assigned_to.get_initials() }}</div>
+                      <span>{{ t.assigned_to.name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if t.due_date %}
+                    <span class="task-due {% if t.is_overdue() %}overdue{% endif %}">
+                      <i class="bi bi-calendar-event"></i> {{ t.due_date.strftime('%d %b') }}
+                    </span>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="task-progress-mini">
+                  <div class="mini-prog-bar"><div style="width:{{ t.progress }}%;background:{{ t.status_color }}"></div></div>
+                  <span>{{ t.progress }}%</span>
+                </div>
+                {% if current_user.role != 'client' %}
+                <button class="icon-btn task-del-btn" onclick="deleteTask({{ t.id }}, this)"><i class="bi bi-trash"></i></button>
+                {% endif %}
+              </div>
+              {% else %}
+              <div class="empty-tasks" id="noTasks-{{ sec.id }}">No tasks yet. Add one above.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-page">
+      <div class="empty-icon"><i class="bi bi-layout-text-sidebar-reverse"></i></div>
+      <h3>No sections yet</h3>
+      <p>Add sections like Analysis, Write-up, Learning, Fieldwork, etc.</p>
+      {% if current_user.role != 'client' %}
+      <button class="btn-primary-glow mt-3" onclick="openModal('addSectionModal')">
+        <i class="bi bi-plus-lg"></i> Add First Section
+      </button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ───────── TAB: BUDGET ───────── -->
+  <div class="tab-content" id="tab-budget">
+    <div class="tab-actions-bar">
+      <div class="budget-summary-pills">
+        <span class="budget-pill est"><i class="bi bi-calculator"></i> Estimated: ${{ '{:,.0f}'.format(total_est) }}</span>
+        <span class="budget-pill act"><i class="bi bi-receipt"></i> Actual: ${{ '{:,.0f}'.format(total_act) }}</span>
+        {% if total_est > 0 %}
+        <span class="budget-pill {% if total_act > total_est %}over{% else %}ok{% endif %}">
+          {{ ((total_act/total_est)*100)|int }}% utilized
+        </span>
+        {% endif %}
+      </div>
+      {% if current_user.role != 'client' %}
+      <button class="btn-primary-glow btn-sm" onclick="openModal('addCostModal')">
+        <i class="bi bi-plus-lg"></i> Add Cost Item
+      </button>
+      {% endif %}
+    </div>
+    <div class="budget-grid">
+      <div class="budget-table-wrap">
+        <table class="gm-table">
+          <thead>
+            <tr><th>Category</th><th>Description</th><th>Qty</th><th>Unit</th><th>Est.</th><th>Actual</th><th>Variance</th>{% if current_user.role != 'client' %}<th></th>{% endif %}</tr>
+          </thead>
+          <tbody id="costsTableBody">
+            {% for c in cost_items %}
+            <tr id="cost-row-{{ c.id }}">
+              <td><span class="cost-cat-badge cat-{{ c.category }}">{{ c.category|replace('_',' ')|title }}</span></td>
+              <td>{{ c.description }}</td>
+              <td>{{ c.quantity|int }}</td>
+              <td class="text-muted-sm">{{ c.unit }}</td>
+              <td>${{ '{:,.0f}'.format(c.total_estimated) }}</td>
+              <td>${{ '{:,.0f}'.format(c.total_actual) }}</td>
+              <td class="{% if c.total_actual > c.total_estimated and c.total_actual > 0 %}text-danger-sm{% elif c.total_actual > 0 %}text-success-sm{% endif %}">
+                {% if c.total_actual > 0 %}
+                  {% set var = c.total_actual - c.total_estimated %}
+                  {% if var > 0 %}+{% endif %}${{ '{:,.0f}'.format(var) }}
+                {% else %}—{% endif %}
+              </td>
+              {% if current_user.role != 'client' %}
+              <td><button class="icon-btn" onclick="deleteCost({{ c.id }}, this)"><i class="bi bi-trash" style="color:#ef4444"></i></button></td>
+              {% endif %}
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted-sm">No cost items yet.</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td colspan="4"><strong>TOTAL</strong></td>
+              <td><strong>${{ '{:,.0f}'.format(total_est) }}</strong></td>
+              <td><strong>${{ '{:,.0f}'.format(total_act) }}</strong></td>
+              <td class="{% if total_act > total_est and total_act > 0 %}text-danger-sm{% endif %}">
+                {% if total_act > 0 %}{% set tv = total_act - total_est %}{% if tv > 0 %}+{% endif %}${{ '{:,.0f}'.format(tv) }}{% endif %}
+              </td>
+              {% if current_user.role != 'client' %}<td></td>{% endif %}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="budget-chart-wrap">
+        <canvas id="budgetChart"></canvas>
+        <div class="budget-util-bar">
+          {% if total_est > 0 %}
+          {% set util_pct = [(total_act/total_est*100)|int, 100]|min %}
+          <div class="util-label"><span>Budget Utilized</span><span>{{ util_pct }}%</span></div>
+          <div class="util-track"><div class="util-fill {% if util_pct > 90 %}danger{% elif util_pct > 70 %}warning{% endif %}" style="width:{{ util_pct }}%"></div></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────── TAB: TEAM ───────── -->
+  <div class="tab-content" id="tab-team">
+    <div class="tab-actions-bar">
+      <span class="text-muted-sm">Team assignments by section</span>
+    </div>
+    {% if sections %}
+    <div class="team-sections-grid">
+      {% for sec in sections %}
+      {% if sec.assignments %}
+      <div class="team-sec-card">
+        <div class="team-sec-header" style="border-color:{{ sec.type_color }}">
+          <i class="bi {{ sec.type_icon }}" style="color:{{ sec.type_color }}"></i>
+          <span>{{ sec.name }}</span>
+        </div>
+        <div class="team-sec-members">
+          {% for a in sec.assignments %}
+          <div class="team-member-row">
+            <div class="team-avatar" style="background:{{ a.user.avatar_color }}">{{ a.user.get_initials() }}</div>
+            <div class="team-member-info">
+              <span class="team-member-name">{{ a.user.name }}</span>
+              <span class="team-member-spec">{{ a.user.specialization[:40] if a.user.specialization else a.user.department or '—' }}</span>
+            </div>
+            <span class="assignee-role-tag role-{{ a.assignment_role }}">{{ a.assignment_role|title }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><i class="bi bi-people"></i><p>Add sections and assign team members.</p></div>
+    {% endif %}
+  </div>
+
+</div><!-- /project-detail -->
+
+<!-- ── MODALS ──────────────────────────────────────────────── -->
+
+<!-- Edit Project -->
+{% if current_user.role != 'client' %}
+<div class="gm-modal-backdrop" id="editProjectModal">
+  <div class="gm-modal gm-modal-lg">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-pencil"></i> Edit Project</h3>
+      <button onclick="closeModal('editProjectModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="POST" action="{{ url_for('update_project', project_id=project.id) }}">
+      <div class="gm-modal-body">
+        <div class="form-grid-2">
+          <div class="fg-full"><label class="fl">Project Name *</label><input type="text" name="name" class="fi" value="{{ project.name }}" required></div>
+          <div><label class="fl">Client / Organization</label><input type="text" name="client_name" class="fi" value="{{ project.client_name or '' }}"></div>
+          <div>
+            <label class="fl">Project Type</label>
+            <select name="project_type" class="fi">
+              {% for pt in ['Flood Risk Assessment','Land Use & Land Cover Mapping','Remote Sensing Analysis','Urban Planning Analysis','Environmental Impact Assessment','Crop Monitoring & Agriculture','Infrastructure Mapping','Hydrological Analysis','Change Detection Analysis','3D Modeling (LiDAR)','Web GIS Development','Topographic Survey','Disaster Risk Reduction','Climate Change Analysis','Other'] %}
+              <option {% if project.project_type == pt %}selected{% endif %}>{{ pt }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="fl">Status</label>
+            <select name="status" class="fi">
+              {% for s in ['planning','active','on_hold','completed','cancelled'] %}
+              <option value="{{ s }}" {% if project.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="fl">Priority</label>
+            <select name="priority" class="fi">
+              {% for p in ['low','medium','high'] %}
+              <option value="{{ p }}" {% if project.priority == p %}selected{% endif %}>{{ p|title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div><label class="fl">Start Date</label><input type="date" name="start_date" class="fi" value="{{ project.start_date.strftime('%Y-%m-%d') if project.start_date else '' }}"></div>
+          <div><label class="fl">End Date</label><input type="date" name="end_date" class="fi" value="{{ project.end_date.strftime('%Y-%m-%d') if project.end_date else '' }}"></div>
+          <div><label class="fl">Estimated Budget (USD)</label><input type="number" name="budget_estimated" class="fi" value="{{ project.budget_estimated or 0 }}" min="0"></div>
+          <div><label class="fl">Actual Spend (USD)</label><input type="number" name="budget_actual" class="fi" value="{{ project.budget_actual or 0 }}" min="0"></div>
+          <div><label class="fl">Location</label><input type="text" name="location" class="fi" value="{{ project.location or '' }}"></div>
+          <div><label class="fl">Country</label><input type="text" name="country" class="fi" value="{{ project.country or '' }}"></div>
+          {% if developers %}
+          <div>
+            <label class="fl">Coordinator</label>
+            <select name="coordinator_id" class="fi">
+              {% for d in developers %}<option value="{{ d.id }}" {% if project.coordinator_id == d.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          <div class="fg-full"><label class="fl">Description</label><textarea name="description" class="fi" rows="3">{{ project.description or '' }}</textarea></div>
+          <div class="fg-full"><label class="fl">Tags (comma-separated)</label><input type="text" name="tags" class="fi" value="{{ project.tags or '' }}"></div>
+        </div>
+      </div>
+      <div class="gm-modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeModal('editProjectModal')">Cancel</button>
+        <button type="submit" class="btn-primary-glow"><i class="bi bi-save"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Section -->
+<div class="gm-modal-backdrop" id="addSectionModal">
+  <div class="gm-modal">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-plus-square"></i> Add Section</h3>
+      <button onclick="closeModal('addSectionModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="gm-modal-body">
+      <div class="form-grid-2">
+        <div class="fg-full"><label class="fl">Section Name *</label><input type="text" id="newSecName" class="fi" placeholder="e.g. Hydrological Modeling"></div>
+        <div>
+          <label class="fl">Section Type</label>
+          <select id="newSecType" class="fi">
+            <option value="analysis">Analysis</option>
+            <option value="writeup">Write-up</option>
+            <option value="learning">Learning</option>
+            <option value="fieldwork">Fieldwork</option>
+            <option value="data_collection">Data Collection</option>
+            <option value="reporting">Reporting</option>
+            <option value="qc">Quality Control</option>
+          </select>
+        </div>
+        <div>
+          <label class="fl">Status</label>
+          <select id="newSecStatus" class="fi">
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div><label class="fl">Start Date</label><input type="date" id="newSecStart" class="fi"></div>
+        <div><label class="fl">End Date</label><input type="date" id="newSecEnd" class="fi"></div>
+        <div><label class="fl">Initial Progress (%)</label><input type="number" id="newSecProgress" class="fi" value="0" min="0" max="100"></div>
+        <div class="fg-full">
+          <label class="fl">Assign Team Members</label>
+          <div class="assignee-checkboxes">
+            {% for d in developers %}
+            <label class="assignee-check-label">
+              <input type="checkbox" name="sec_assignees" value="{{ d.id }}">
+              <div class="mini-avatar mini-xs" style="background:{{ d.avatar_color }}">{{ d.get_initials() }}</div>
+              {{ d.name }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="fg-full"><label class="fl">Description</label><textarea id="newSecDesc" class="fi" rows="2" placeholder="Section description…"></textarea></div>
+      </div>
+    </div>
+    <div class="gm-modal-footer">
+      <button class="btn-ghost" onclick="closeModal('addSectionModal')">Cancel</button>
+      <button class="btn-primary-glow" onclick="submitAddSection()"><i class="bi bi-plus-lg"></i> Add Section</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Task -->
+<div class="gm-modal-backdrop" id="addTaskModal">
+  <div class="gm-modal">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-plus-square"></i> Add Task to <span id="taskSectionName"></span></h3>
+      <button onclick="closeModal('addTaskModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="gm-modal-body">
+      <input type="hidden" id="taskSectionId">
+      <div class="form-grid-2">
+        <div class="fg-full"><label class="fl">Task Title *</label><input type="text" id="newTaskTitle" class="fi" placeholder="e.g. Download Sentinel-1 SAR imagery"></div>
+        <div>
+          <label class="fl">Assign To</label>
+          <select id="newTaskAssignee" class="fi">
+            <option value="">Unassigned</option>
+            {% for d in developers %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="fl">Priority</label>
+          <select id="newTaskPriority" class="fi">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div><label class="fl">Start Date</label><input type="date" id="newTaskStart" class="fi"></div>
+        <div><label class="fl">Due Date</label><input type="date" id="newTaskDue" class="fi"></div>
+        <div><label class="fl">Initial Progress (%)</label><input type="number" id="newTaskProgress" class="fi" value="0" min="0" max="100"></div>
+        <div class="fg-full"><label class="fl">Description / Notes</label><textarea id="newTaskNotes" class="fi" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="gm-modal-footer">
+      <button class="btn-ghost" onclick="closeModal('addTaskModal')">Cancel</button>
+      <button class="btn-primary-glow" onclick="submitAddTask()"><i class="bi bi-plus-lg"></i> Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Objective -->
+<div class="gm-modal-backdrop" id="addObjectiveModal">
+  <div class="gm-modal">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-target"></i> Add Objective</h3>
+      <button onclick="closeModal('addObjectiveModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="gm-modal-body">
+      <div class="form-grid-2">
+        <div class="fg-full"><label class="fl">Objective Title *</label><input type="text" id="newObjTitle" class="fi" placeholder="e.g. Map historical flood extents 2010–2024"></div>
+        <div>
+          <label class="fl">Type</label>
+          <select id="newObjType" class="fi">
+            <option value="primary">Primary</option>
+            <option value="secondary">Secondary</option>
+          </select>
+        </div>
+        <div>
+          <label class="fl">Status</label>
+          <select id="newObjStatus" class="fi">
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div><label class="fl">Target Date</label><input type="date" id="newObjDate" class="fi"></div>
+        <div class="fg-full"><label class="fl">Description</label><textarea id="newObjDesc" class="fi" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="gm-modal-footer">
+      <button class="btn-ghost" onclick="closeModal('addObjectiveModal')">Cancel</button>
+      <button class="btn-primary-glow" onclick="submitAddObjective()"><i class="bi bi-plus-lg"></i> Add Objective</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Milestone -->
+<div class="gm-modal-backdrop" id="addMilestoneModal">
+  <div class="gm-modal">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-flag-plus"></i> Add Milestone</h3>
+      <button onclick="closeModal('addMilestoneModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="gm-modal-body">
+      <div class="form-grid-2">
+        <div class="fg-full"><label class="fl">Milestone Title *</label><input type="text" id="newMsTitle" class="fi" placeholder="e.g. Draft Report Submitted"></div>
+        <div><label class="fl">Date *</label><input type="date" id="newMsDate" class="fi"></div>
+        <div>
+          <label class="fl">Status</label>
+          <select id="newMsStatus" class="fi">
+            <option value="upcoming">Upcoming</option>
+            <option value="reached">Reached</option>
+          </select>
+        </div>
+        <div class="fg-full"><label class="fl">Description</label><textarea id="newMsDesc" class="fi" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="gm-modal-footer">
+      <button class="btn-ghost" onclick="closeModal('addMilestoneModal')">Cancel</button>
+      <button class="btn-primary-glow" onclick="submitAddMilestone()"><i class="bi bi-plus-lg"></i> Add Milestone</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Cost -->
+<div class="gm-modal-backdrop" id="addCostModal">
+  <div class="gm-modal">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-currency-dollar"></i> Add Cost Item</h3>
+      <button onclick="closeModal('addCostModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="gm-modal-body">
+      <div class="form-grid-2">
+        <div>
+          <label class="fl">Category</label>
+          <select id="newCostCat" class="fi">
+            <option value="personnel">Personnel</option>
+            <option value="software">Software</option>
+            <option value="equipment">Equipment</option>
+            <option value="data_acquisition">Data Acquisition</option>
+            <option value="travel">Travel</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div><label class="fl">Description *</label><input type="text" id="newCostDesc" class="fi" placeholder="e.g. Senior GIS Analyst (3 months)"></div>
+        <div><label class="fl">Unit</label><input type="text" id="newCostUnit" class="fi" placeholder="month, license, trip…" value="lump sum"></div>
+        <div><label class="fl">Quantity</label><input type="number" id="newCostQty" class="fi" value="1" min="0.1" step="0.5"></div>
+        <div><label class="fl">Unit Cost (Estimated)</label><input type="number" id="newCostEst" class="fi" value="0" min="0"></div>
+        <div><label class="fl">Unit Cost (Actual)</label><input type="number" id="newCostAct" class="fi" value="0" min="0"></div>
+      </div>
+    </div>
+    <div class="gm-modal-footer">
+      <button class="btn-ghost" onclick="closeModal('addCostModal')">Cancel</button>
+      <button class="btn-primary-glow" onclick="submitAddCost()"><i class="bi bi-plus-lg"></i> Add Cost Item</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PROJECT_ID = {{ project.id }};
+
+// Section chart
+{% if sections %}
+new Chart(document.getElementById('sectionChart'), {
+  type: 'bar',
+  data: {
+    labels: [{% for s in sections %}'{{ s.name[:20] }}',{% endfor %}],
+    datasets: [{
+      data: [{% for s in sections %}{{ s.progress }},{% endfor %}],
+      backgroundColor: [{% for s in sections %}'{{ s.type_color }}aa',{% endfor %}],
+      borderColor: [{% for s in sections %}'{{ s.type_color }}',{% endfor %}],
+      borderWidth: 2, borderRadius: 6
+    }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', callback: v => v+'%' } },
+      y: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 11 } } }
+    }
+  }
+});
+{% endif %}
+
+// Budget chart
+{% if cost_items %}
+const budgetCtx = document.getElementById('budgetChart');
+if (budgetCtx) {
+  const cats = {};
+  {% for c in cost_items %}cats['{{ c.category|replace("_"," ")|title }}'] = (cats['{{ c.category|replace("_"," ")|title }}'] || 0) + {{ c.total_estimated }};{% endfor %}
+  new Chart(budgetCtx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(cats),
+      datasets: [{ data: Object.values(cats), backgroundColor: ['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6'], borderColor: 'transparent', hoverOffset: 8 }]
+    },
+    options: { cutout: '68%', plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 12 } } } }
+  });
+}
+{% endif %}
+
+// Tab switching
+document.querySelectorAll('.tab-item').forEach(tab => {
+  tab.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    window.location.hash = tab.dataset.tab;
+  });
+});
+// Auto-activate tab from URL hash
+const hash = window.location.hash.replace('#','');
+if (hash) {
+  const tabEl = document.querySelector(`[data-tab="${hash}"]`);
+  if (tabEl) tabEl.click();
+}
+
+// Expand/collapse sections
+function toggleSection(id) {
+  const body = document.getElementById('sec-body-' + id);
+  const chevron = document.getElementById('chevron-' + id);
+  body.classList.toggle('collapsed');
+  chevron.classList.toggle('bi-chevron-down');
+  chevron.classList.toggle('bi-chevron-up');
+}
+
+// Progress slider
+let progressTimers = {};
+function updateProgress(input) {
+  const secId = input.dataset.section;
+  const val = input.value;
+  document.getElementById('progPct-' + secId).textContent = val + '%';
+  document.getElementById('progFill-' + secId).style.width = val + '%';
+  clearTimeout(progressTimers[secId]);
+  progressTimers[secId] = setTimeout(() => {
+    fetch(`/sections/${secId}`, {
+      method: 'PUT', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({progress: parseInt(val)})
+    });
+  }, 600);
+}
+
+// Toggle task
+function toggleTask(id, cb) {
+  const newStatus = cb.checked ? 'completed' : 'todo';
+  const newProgress = cb.checked ? 100 : 0;
+  const titleEl = document.querySelector(`#task-${id} .task-title`);
+  if (titleEl) titleEl.classList.toggle('done', cb.checked);
+  fetch(`/tasks/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: newStatus, progress: newProgress})
+  });
+}
+
+// Delete task
+function deleteTask(id, btn) {
+  if (!confirm('Delete this task?')) return;
+  fetch(`/tasks/${id}`, {method: 'DELETE'})
+    .then(r => r.json())
+    .then(d => { if (d.success) document.getElementById('task-' + id).remove(); });
+}
+
+// Add task
+function openAddTask(sectionId, sectionName) {
+  document.getElementById('taskSectionId').value = sectionId;
+  document.getElementById('taskSectionName').textContent = sectionName;
+  openModal('addTaskModal');
+}
+function submitAddTask() {
+  const secId = document.getElementById('taskSectionId').value;
+  const data = {
+    title: document.getElementById('newTaskTitle').value,
+    assigned_to_id: document.getElementById('newTaskAssignee').value || null,
+    priority: document.getElementById('newTaskPriority').value,
+    start_date: document.getElementById('newTaskStart').value,
+    due_date: document.getElementById('newTaskDue').value,
+    progress: parseInt(document.getElementById('newTaskProgress').value) || 0,
+    notes: document.getElementById('newTaskNotes').value
+  };
+  if (!data.title) return alert('Please enter a task title.');
+  fetch(`/sections/${secId}/tasks`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(d => {
+    if (d.success) { closeModal('addTaskModal'); location.reload(); }
+  });
+}
+
+// Add section
+function submitAddSection() {
+  const assignees = [...document.querySelectorAll('[name=sec_assignees]:checked')].map(c => c.value);
+  const data = {
+    name: document.getElementById('newSecName').value,
+    section_type: document.getElementById('newSecType').value,
+    description: document.getElementById('newSecDesc').value,
+    status: document.getElementById('newSecStatus').value,
+    start_date: document.getElementById('newSecStart').value,
+    end_date: document.getElementById('newSecEnd').value,
+    progress: parseInt(document.getElementById('newSecProgress').value) || 0,
+    assignees: assignees
+  };
+  if (!data.name) return alert('Please enter a section name.');
+  fetch(`/projects/${PROJECT_ID}/sections`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(d => {
+    if (d.success) location.reload();
+  });
+}
+
+// Add objective
+function submitAddObjective() {
+  const data = {
+    title: document.getElementById('newObjTitle').value,
+    obj_type: document.getElementById('newObjType').value,
+    status: document.getElementById('newObjStatus').value,
+    target_date: document.getElementById('newObjDate').value,
+    description: document.getElementById('newObjDesc').value
+  };
+  if (!data.title) return alert('Please enter an objective title.');
+  fetch(`/projects/${PROJECT_ID}/objectives`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(d => {
+    if (d.success) location.reload();
+  });
+}
+
+// Cycle objective status
+const statuses = ['pending', 'in_progress', 'completed'];
+function cycleObjStatus(id, current) {
+  const next = statuses[(statuses.indexOf(current) + 1) % statuses.length];
+  fetch(`/objectives/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: next})
+  }).then(r => r.json()).then(d => { if (d.success) location.reload(); });
+}
+function deleteObjective(id) {
+  if (!confirm('Delete this objective?')) return;
+  fetch(`/objectives/${id}`, {method: 'DELETE'})
+    .then(r => r.json()).then(d => { if (d.success) document.getElementById('obj-' + id).remove(); });
+}
+
+// Milestone
+function submitAddMilestone() {
+  const data = {
+    title: document.getElementById('newMsTitle').value,
+    date: document.getElementById('newMsDate').value,
+    status: document.getElementById('newMsStatus').value,
+    description: document.getElementById('newMsDesc').value
+  };
+  if (!data.title) return alert('Milestone title required.');
+  fetch(`/projects/${PROJECT_ID}/milestones`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(d => { if (d.success) location.reload(); });
+}
+function updateMilestone(id, status) {
+  fetch(`/milestones/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status})
+  }).then(() => location.reload());
+}
+function deleteMilestone(id, btn) {
+  if (!confirm('Delete this milestone?')) return;
+  fetch(`/milestones/${id}`, {method: 'DELETE'})
+    .then(r => r.json()).then(d => { if (d.success) btn.closest('.ms-item').remove(); });
+}
+
+// Cost
+function submitAddCost() {
+  const data = {
+    category: document.getElementById('newCostCat').value,
+    description: document.getElementById('newCostDesc').value,
+    unit: document.getElementById('newCostUnit').value,
+    quantity: parseFloat(document.getElementById('newCostQty').value),
+    unit_cost_estimated: parseFloat(document.getElementById('newCostEst').value),
+    unit_cost_actual: parseFloat(document.getElementById('newCostAct').value)
+  };
+  if (!data.description) return alert('Description required.');
+  fetch(`/projects/${PROJECT_ID}/costs`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(d => { if (d.success) location.reload(); });
+}
+function deleteCost(id, btn) {
+  if (!confirm('Delete this cost item?')) return;
+  fetch(`/costs/${id}`, {method: 'DELETE'})
+    .then(r => r.json()).then(d => { if (d.success) document.getElementById('cost-row-' + id).remove(); });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+{% block title %}{{ folder_name }}{% endblock %}
+{% block page_title %}{{ folder_name[:45] }}{% if folder_name|length > 45 %}…{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-wrap gallery-page">
+
+  <!-- Header -->
+  <div class="gallery-header">
+    <div class="gallery-header-left">
+      <a href="{{ url_for('accomplished_list') }}" class="back-link">
+        <i class="bi bi-arrow-left"></i> Accomplished Projects
+      </a>
+      <!-- Breadcrumb -->
+      <div class="gallery-breadcrumb">
+        {% for crumb in breadcrumb %}
+        {% if not loop.last %}
+        <a href="{{ url_for('accomplished_project', folder_name=folder_name) }}{% if crumb.path %}?path={{ crumb.path }}{% endif %}" class="crumb-link">{{ crumb.name }}</a>
+        <i class="bi bi-chevron-right crumb-sep"></i>
+        {% else %}
+        <span class="crumb-current">{{ crumb.name }}</span>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="gallery-header-right">
+      <div class="gallery-stats-mini">
+        <span><i class="bi bi-image" style="color:#6366f1"></i> {{ stats.images }} images</span>
+        <span><i class="bi bi-file-earmark-spreadsheet" style="color:#f59e0b"></i> {{ stats.excels }} tables</span>
+        <span><i class="bi bi-files" style="color:#6b7280"></i> {{ stats.total }} files total</span>
+      </div>
+      {% if current_user.role != 'client' and not db_project %}
+      <button class="btn-primary-glow btn-sm" id="importBtn" onclick="importThis()">
+        <i class="bi bi-cloud-download"></i> Import to DB
+      </button>
+      {% elif db_project %}
+      <a href="{{ url_for('project_detail', project_id=db_project.id) }}" class="btn-ghost-sm">
+        <i class="bi bi-box-arrow-up-right"></i> View Project
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="gallery-layout">
+
+    <!-- ── FOLDER TREE SIDEBAR ─── -->
+    <div class="folder-sidebar">
+      <div class="folder-sidebar-title"><i class="bi bi-folder2"></i> Folders</div>
+
+      {% if not rel_path %}
+        <!-- Root level: show all subfolders -->
+        {% if contents.folders %}
+        <div class="folder-tree">
+          {% for f in contents.folders %}
+          <a href="{{ url_for('accomplished_project', folder_name=folder_name) }}?path={{ f.path }}"
+             class="folder-item {% if rel_path == f.path %}active{% endif %}">
+            <i class="bi bi-folder{% if f.img_count > 0 %}-fill{% endif %}" style="color:{% if f.img_count > 0 %}#f59e0b{% else %}#6b7280{% endif %}"></i>
+            <span>{{ f.name }}</span>
+            {% if f.img_count > 0 %}
+            <span class="folder-count">{{ f.img_count }}</span>
+            {% endif %}
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state-sm"><i class="bi bi-folder"></i> No subfolders</div>
+        {% endif %}
+
+        <!-- Root images summary -->
+        {% if contents.images %}
+        <div class="folder-item folder-item-root active">
+          <i class="bi bi-images" style="color:#6366f1"></i>
+          <span>Root images</span>
+          <span class="folder-count">{{ contents.images|length }}</span>
+        </div>
+        {% endif %}
+
+      {% else %}
+        <!-- In a subfolder: show parent + subfolders -->
+        <a href="{{ url_for('accomplished_project', folder_name=folder_name) }}{% if breadcrumb|length > 2 %}?path={{ breadcrumb[-2].path }}{% endif %}"
+           class="folder-item folder-up">
+          <i class="bi bi-arrow-up-left"></i> <span>Up one level</span>
+        </a>
+        {% for f in contents.folders %}
+        <a href="{{ url_for('accomplished_project', folder_name=folder_name) }}?path={{ f.path }}"
+           class="folder-item {% if rel_path == f.path %}active{% endif %}">
+          <i class="bi bi-folder{% if f.img_count > 0 %}-fill{% endif %}" style="color:{% if f.img_count > 0 %}#f59e0b{% else %}#6b7280{% endif %}"></i>
+          <span>{{ f.name }}</span>
+          {% if f.img_count > 0 %}
+          <span class="folder-count">{{ f.img_count }}</span>
+          {% endif %}
+        </a>
+        {% endfor %}
+      {% endif %}
+
+      <!-- Non-image files -->
+      {% if contents.files %}
+      <div class="folder-sidebar-title" style="margin-top:1rem"><i class="bi bi-files"></i> Other Files</div>
+      {% for f in contents.files %}
+      <a href="{{ url_for('serve_accomplished', filepath=folder_name + '/' + f.path) }}"
+         class="folder-item file-item" target="_blank" download>
+        <i class="bi bi-{% if f.ext in ['.xlsx','.xls'] %}file-earmark-spreadsheet text-warning{% elif f.ext in ['.pdf'] %}file-earmark-pdf text-danger{% elif f.ext in ['.docx','.doc'] %}file-earmark-word text-info{% else %}file-earmark{% endif %}"></i>
+        <span class="file-name" title="{{ f.name }}">{{ f.name[:35] }}{% if f.name|length > 35 %}…{% endif %}</span>
+        <i class="bi bi-download text-muted"></i>
+      </a>
+      {% endfor %}
+      {% endif %}
+    </div>
+
+    <!-- ── IMAGE GALLERY ─── -->
+    <div class="gallery-main">
+
+      <!-- Filter tabs -->
+      <div class="gallery-filter-bar">
+        <div class="gf-left">
+          <span class="gallery-count">
+            {{ contents.images|length }} image{% if contents.images|length != 1 %}s{% endif %}
+            {% if rel_path %} in <em>{{ breadcrumb[-1].name }}</em>{% endif %}
+          </span>
+        </div>
+        <div class="gf-right">
+          <button class="gf-btn active" data-gview="grid" onclick="setView('grid', this)" title="Grid view"><i class="bi bi-grid-3x3-gap"></i></button>
+          <button class="gf-btn" data-gview="masonry" onclick="setView('masonry', this)" title="Large view"><i class="bi bi-layout-three-columns"></i></button>
+        </div>
+      </div>
+
+      {% if contents.images %}
+      <div class="img-gallery grid-view" id="imgGallery">
+        {% for img in contents.images %}
+        <div class="gallery-item" onclick="openLightbox({{ loop.index0 }})">
+          <div class="gallery-thumb">
+            <img src="{{ url_for('serve_accomplished', filepath=folder_name + '/' + img.path) }}"
+                 alt="{{ img.name }}" loading="lazy">
+            <div class="gallery-thumb-overlay">
+              <i class="bi bi-zoom-in"></i>
+            </div>
+          </div>
+          <div class="gallery-item-name" title="{{ img.name }}">{{ img.name[:40] }}{% if img.name|length > 40 %}…{% endif %}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif contents.folders %}
+      <div class="empty-state">
+        <i class="bi bi-folder2-open"></i>
+        <p>Select a subfolder to view its images.</p>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-images"></i>
+        <p>No images in this folder.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── LIGHTBOX ── -->
+<div class="lightbox-backdrop" id="lightbox" onclick="closeLightboxBg(event)">
+  <div class="lightbox-container">
+    <button class="lightbox-close" onclick="closeLightbox()"><i class="bi bi-x-lg"></i></button>
+    <button class="lightbox-prev" onclick="lightboxNav(-1)"><i class="bi bi-chevron-left"></i></button>
+    <div class="lightbox-img-wrap">
+      <img id="lightboxImg" src="" alt="">
+      <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+    <button class="lightbox-next" onclick="lightboxNav(1)"><i class="bi bi-chevron-right"></i></button>
+    <a id="lightboxDownload" href="" download class="lightbox-download-btn">
+      <i class="bi bi-download"></i> Download
+    </a>
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Image list for lightbox
+const IMAGES = [
+  {% for img in contents.images %}
+  {
+    src: "{{ url_for('serve_accomplished', filepath=folder_name + '/' + img.path) }}",
+    name: "{{ img.name|replace('"','\\\"') }}"
+  }{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+let currentIdx = 0;
+
+function openLightbox(idx) {
+  currentIdx = idx;
+  updateLightbox();
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeLightboxBg(e) {
+  if (e.target === document.getElementById('lightbox')) closeLightbox();
+}
+function lightboxNav(dir) {
+  currentIdx = (currentIdx + dir + IMAGES.length) % IMAGES.length;
+  updateLightbox();
+}
+function updateLightbox() {
+  const img = IMAGES[currentIdx];
+  const el = document.getElementById('lightboxImg');
+  el.style.opacity = '0';
+  el.src = img.src;
+  el.onload = () => { el.style.opacity = '1'; };
+  document.getElementById('lightboxCaption').textContent = img.name;
+  document.getElementById('lightboxDownload').href = img.src;
+  document.getElementById('lightboxDownload').download = img.name;
+  document.getElementById('lightboxCounter').textContent = `${currentIdx + 1} / ${IMAGES.length}`;
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('lightbox').classList.contains('open')) return;
+  if (e.key === 'ArrowRight') lightboxNav(1);
+  else if (e.key === 'ArrowLeft') lightboxNav(-1);
+  else if (e.key === 'Escape') closeLightbox();
+});
+
+// Grid / masonry view toggle
+function setView(mode, btn) {
+  document.querySelectorAll('.gf-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const gallery = document.getElementById('imgGallery');
+  if (gallery) {
+    gallery.className = 'img-gallery ' + (mode === 'masonry' ? 'masonry-view' : 'grid-view');
+  }
+}
+
+// Import this project
+function importThis() {
+  fetch(`/accomplished/import/{{ folder_name|urlencode }}`, {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        document.getElementById('importBtn').outerHTML =
+          `<a href="/projects/${d.id}" class="btn-ghost-sm" style="color:var(--primary)"><i class="bi bi-box-arrow-up-right"></i> View Project</a>`;
+        showToast('Project imported to database!');
+      }
+    });
+}
+</script>
+
+<style>
+.gallery-page { max-width: none; }
+.gallery-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;
+}
+.gallery-header-left { display: flex; flex-direction: column; gap: .4rem; }
+.back-link { display: flex; align-items: center; gap: .4rem; font-size: .82rem; color: var(--text-muted); text-decoration: none; }
+.back-link:hover { color: var(--primary); }
+.gallery-breadcrumb { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.crumb-link { font-size: .875rem; color: var(--primary); text-decoration: none; }
+.crumb-link:hover { text-decoration: underline; }
+.crumb-sep { font-size: .7rem; color: var(--text-muted); }
+.crumb-current { font-size: .875rem; color: var(--text-primary); font-weight: 600; }
+.gallery-header-right { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.gallery-stats-mini { display: flex; gap: 1rem; font-size: .82rem; color: var(--text-secondary); flex-wrap: wrap; }
+.gallery-stats-mini span { display: flex; align-items: center; gap: .3rem; }
+
+.gallery-layout { display: grid; grid-template-columns: 220px 1fr; gap: 1.25rem; align-items: start; }
+
+/* Folder sidebar */
+.folder-sidebar {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: .75rem; position: sticky; top: 80px;
+}
+.folder-sidebar-title {
+  font-size: .72rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .8px; padding: .4rem .5rem;
+  display: flex; align-items: center; gap: .4rem;
+}
+.folder-tree { display: flex; flex-direction: column; gap: .15rem; }
+.folder-item {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .45rem .6rem; border-radius: var(--radius-sm);
+  color: var(--text-secondary); text-decoration: none; font-size: .82rem;
+  transition: var(--transition); cursor: pointer;
+}
+.folder-item:hover, .folder-item.active { background: var(--bg-surface-2); color: var(--text-primary); }
+.folder-item.active { background: var(--primary-glow); color: var(--primary); }
+.folder-item span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-count { background: var(--bg-surface-3); color: var(--text-muted); border-radius: 10px; padding: .05rem .4rem; font-size: .7rem; flex-shrink: 0; }
+.folder-up { border-bottom: 1px solid var(--border); margin-bottom: .4rem; padding-bottom: .65rem; }
+.file-item { font-size: .78rem; }
+.file-item .file-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.text-warning { color: var(--accent) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-info { color: var(--info) !important; }
+
+/* Gallery main */
+.gallery-main { min-width: 0; }
+.gallery-filter-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem; padding: .5rem .75rem;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.gallery-count { font-size: .875rem; color: var(--text-secondary); }
+.gallery-count em { color: var(--primary); font-style: normal; font-weight: 600; }
+.gf-right { display: flex; gap: .3rem; }
+.gf-btn {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-muted); cursor: pointer; padding: .3rem .5rem; font-size: .9rem;
+  transition: var(--transition);
+}
+.gf-btn:hover { background: var(--bg-surface-2); color: var(--text-primary); }
+.gf-btn.active { background: var(--primary-glow); color: var(--primary); border-color: rgba(16,185,129,.3); }
+
+/* Grid view */
+.img-gallery.grid-view {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .85rem;
+}
+/* Masonry view */
+.img-gallery.masonry-view {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;
+}
+.gallery-item { cursor: pointer; }
+.gallery-thumb {
+  border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--bg-surface-2); border: 1px solid var(--border);
+  position: relative; aspect-ratio: 4/3;
+  transition: var(--transition);
+}
+.masonry-view .gallery-thumb { aspect-ratio: 16/10; }
+.gallery-item:hover .gallery-thumb { border-color: var(--primary); }
+.gallery-thumb img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: transform .3s ease;
+}
+.gallery-item:hover .gallery-thumb img { transform: scale(1.05); }
+.gallery-thumb-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .2s;
+  font-size: 1.5rem; color: #fff;
+}
+.gallery-item:hover .gallery-thumb-overlay { opacity: 1; }
+.gallery-item-name {
+  font-size: .72rem; color: var(--text-muted); margin-top: .35rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 0 .15rem;
+}
+
+/* Lightbox */
+.lightbox-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 3000;
+  background: rgba(0,0,0,.92); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center;
+}
+.lightbox-backdrop.open { display: flex; }
+.lightbox-container {
+  position: relative; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center; padding: 3rem 4rem;
+}
+.lightbox-img-wrap { max-width: 90vw; max-height: 85vh; text-align: center; }
+.lightbox-img-wrap img {
+  max-width: 100%; max-height: 80vh; object-fit: contain;
+  border-radius: var(--radius); box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  transition: opacity .2s ease;
+}
+.lightbox-caption {
+  font-size: .82rem; color: rgba(255,255,255,.6); margin-top: .75rem;
+  text-align: center;
+}
+.lightbox-close {
+  position: absolute; top: 1rem; right: 1.5rem;
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
+  color: #fff; border-radius: 50%; width: 40px; height: 40px;
+  cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.lightbox-close:hover { background: rgba(255,255,255,.2); }
+.lightbox-prev, .lightbox-next {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  color: #fff; border-radius: 50%; width: 44px; height: 44px;
+  cursor: pointer; font-size: 1.2rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition); z-index: 1;
+}
+.lightbox-prev { left: 1.5rem; }
+.lightbox-next { right: 1.5rem; }
+.lightbox-prev:hover, .lightbox-next:hover { background: rgba(255,255,255,.18); }
+.lightbox-download-btn {
+  position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: .4rem;
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+  color: #fff; padding: .4rem 1rem; border-radius: 20px; font-size: .82rem;
+  text-decoration: none; transition: var(--transition);
+}
+.lightbox-download-btn:hover { background: var(--primary); color: #fff; }
+.lightbox-counter {
+  position: absolute; bottom: 1.5rem; right: 1.5rem;
+  font-size: .78rem; color: rgba(255,255,255,.5);
+}
+
+@media (max-width: 768px) {
+  .gallery-layout { grid-template-columns: 1fr; }
+  .folder-sidebar { position: static; }
+  .img-gallery.grid-view { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,194 @@
+================================================================
+  GEOSPATIAL MAVEN — RENDER.COM FREE DEPLOYMENT GUIDE
+================================================================
+  App: Progress Tracker Dashboard
+  Author: Geospatial Maven
+  Date: 2026-05-21
+================================================================
+
+
+----------------------------------------------------------------
+  STEP 0 — TEST LOCALLY FIRST
+----------------------------------------------------------------
+
+  Double-click run.bat  (or run: python app.py)
+  Open browser at:  http://localhost:5000
+
+  Login credentials:
+    Super Admin  ->  admin       / admin123
+    Developer    ->  ahmed       / dev123
+    Client       ->  client1     / client123
+
+  Check everything works before deploying.
+
+
+----------------------------------------------------------------
+  STEP 1 — INSTALL GIT (if not installed)
+----------------------------------------------------------------
+
+  Download from:  https://git-scm.com/download/win
+  Install with all default options.
+
+  Verify in PowerShell:
+    git --version
+
+
+----------------------------------------------------------------
+  STEP 2 — INITIALIZE GIT REPO
+----------------------------------------------------------------
+
+  Open PowerShell in the dashboard folder, then run:
+
+    git init
+    git add .
+    git commit -m "Initial commit: Geospatial Maven Dashboard"
+
+  NOTE: The following are automatically excluded (.gitignore):
+    - instance/          (local SQLite database)
+    - Accomplished Projects/  (too large — images/data files)
+    - __pycache__/
+    - .env
+
+
+----------------------------------------------------------------
+  STEP 3 — CREATE A GITHUB REPOSITORY
+----------------------------------------------------------------
+
+  1. Go to https://github.com  and sign in (or create free account)
+  2. Click the  [+]  icon  ->  New repository
+  3. Name:     geospatial-maven-dashboard
+  4. Visibility: PRIVATE  (recommended — your project data)
+  5. Do NOT add README, .gitignore, or license (keep it empty)
+  6. Click  [Create repository]
+
+
+----------------------------------------------------------------
+  STEP 4 — CREATE A GITHUB PERSONAL ACCESS TOKEN (for push)
+----------------------------------------------------------------
+
+  GitHub no longer accepts passwords for git push. You need a token:
+
+  1. GitHub  ->  Profile picture  ->  Settings
+  2. Scroll down  ->  Developer settings  (left sidebar)
+  3. Personal access tokens  ->  Tokens (classic)
+  4. Click  [Generate new token (classic)]
+  5. Note: "Render deploy"
+  6. Expiration: 90 days (or No expiration)
+  7. Check the box:  [x] repo
+  8. Click  [Generate token]
+  9. COPY the token immediately — you won't see it again!
+     Paste it somewhere safe (Notepad, etc.)
+
+
+----------------------------------------------------------------
+  STEP 5 — PUSH CODE TO GITHUB
+----------------------------------------------------------------
+
+  In PowerShell (replace YOUR_USERNAME with your GitHub username):
+
+    git remote add origin https://github.com/YOUR_USERNAME/geospatial-maven-dashboard.git
+    git branch -M main
+    git push -u origin main
+
+  When prompted:
+    Username:  your GitHub username
+    Password:  paste the Personal Access Token from Step 4
+
+
+----------------------------------------------------------------
+  STEP 6 — DEPLOY ON RENDER.COM
+----------------------------------------------------------------
+
+  1. Go to https://render.com
+  2. Click  [Sign up]  ->  use  [Sign up with GitHub]
+  3. After login, click  [New +]  ->  [Blueprint]
+  4. Select your repository:  geospatial-maven-dashboard
+  5. Render detects render.yaml and shows two resources:
+       - Web Service:  geospatial-maven-dashboard
+       - PostgreSQL:   gm-db
+  6. Click  [Apply]
+  7. Wait 3-5 minutes for the first deploy to finish
+  8. You'll see a green  [Live]  status badge when done
+
+
+----------------------------------------------------------------
+  STEP 7 — GET YOUR LIVE URL
+----------------------------------------------------------------
+
+  Your dashboard will be live at:
+    https://geospatial-maven-dashboard.onrender.com
+
+  Share this link with anyone — works on mobile, desktop,
+  any browser. No setup or installation needed.
+
+
+----------------------------------------------------------------
+  IMPORTANT NOTES
+----------------------------------------------------------------
+
+  FREE TIER SLEEP:
+    Render free plan sleeps after 15 minutes of no activity.
+    First visit after sleep takes ~30 seconds to wake up.
+    This is normal — it will load, just wait a moment.
+
+  ACCOMPLISHED PROJECTS ON LIVE SERVER:
+    The gallery shows an informational page (not actual files)
+    because local image/data files are too large to upload to git.
+    All 21 projects are listed by category.
+    Full gallery works locally at localhost:5000.
+
+  FUTURE UPDATES:
+    Whenever you change any files locally, push with:
+      git add .
+      git commit -m "describe your change here"
+      git push
+    Render will auto-deploy within ~2 minutes.
+
+  DATABASE:
+    Live server uses PostgreSQL (free, managed by Render).
+    Local dev uses SQLite (file: instance/gm_dashboard.db).
+    Both are seeded automatically on first run.
+
+
+----------------------------------------------------------------
+  QUICK REFERENCE — LOGIN CREDENTIALS
+----------------------------------------------------------------
+
+  Role          Username    Password
+  ---------     --------    --------
+  Super Admin   admin       admin123
+  Developer     ahmed       dev123
+  Developer     sara        dev123
+  Developer     bilal       dev123
+  Client        client1     client123
+  Client        client2     client123
+
+
+----------------------------------------------------------------
+  TROUBLESHOOTING
+----------------------------------------------------------------
+
+  Problem: "python not found" when running run.bat
+  Fix: Install Python from https://python.org
+       During install, check [x] Add Python to PATH
+
+  Problem: pip install fails
+  Fix: Run PowerShell as Administrator, then run:
+       pip install -r requirements.txt
+
+  Problem: Port 5000 already in use
+  Fix: Change port in app.py last line:
+       app.run(debug=True, port=5001)
+
+  Problem: Render deploy fails — check the build log
+  Fix: Open Render dashboard -> your service -> Logs tab
+       Common cause: requirements.txt missing a package
+
+  Problem: App works but shows no data after deploy
+  Fix: Render Logs should show "[GM] Seed data loaded"
+       If not, go to Render -> your service -> Manual Deploy
+
+
+================================================================
+  END OF GUIDE
+================================================================

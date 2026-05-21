@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+{% block page_title %}Projects{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      {% if current_user.role == 'super_admin' %}
+      <h2 class="page-h2">All Projects</h2>
+      <p class="page-sub">{{ projects|length }} project{% if projects|length != 1 %}s{% endif %} across the organisation</p>
+      {% elif current_user.role == 'developer' %}
+      <h2 class="page-h2">My Projects</h2>
+      <p class="page-sub">{{ projects|length }} project{% if projects|length != 1 %}s{% endif %} assigned to you</p>
+      {% else %}
+      <h2 class="page-h2">Your Projects</h2>
+      <p class="page-sub">{{ projects|length }} project{% if projects|length != 1 %}s{% endif %} shared with you</p>
+      {% endif %}
+    </div>
+    {% if current_user.role != 'client' %}
+    <button class="btn-primary-glow" onclick="openModal('createProjectModal')">
+      <i class="bi bi-plus-lg"></i> New Project
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="filter-search">
+      <i class="bi bi-search"></i>
+      <input type="text" id="projectSearch" placeholder="Search projects…" class="filter-input">
+    </div>
+    <div class="filter-pills">
+      <button class="filter-pill active" data-filter="all">All</button>
+      <button class="filter-pill" data-filter="planning">Planning</button>
+      <button class="filter-pill" data-filter="active">Active</button>
+      <button class="filter-pill" data-filter="on_hold">On Hold</button>
+      <button class="filter-pill" data-filter="completed">Completed</button>
+    </div>
+  </div>
+
+  <!-- Project Cards -->
+  {% if projects %}
+  <div class="project-cards-grid" id="projectsGrid">
+    {% for p in projects %}
+    <div class="project-card" data-status="{{ p.status }}" data-name="{{ p.name|lower }}">
+      <div class="pc-header" style="--pcolor:{{ p.status_color }}">
+        <div class="pc-code">{{ p.code or 'GM-' ~ loop.index }}</div>
+        <div class="pc-badges">
+          <span class="badge-pill" style="--bc:{{ p.priority_color }}">
+            <i class="bi bi-{% if p.priority == 'high' %}arrow-up{% elif p.priority == 'low' %}arrow-down{% else %}dash{% endif %}"></i>
+            {{ p.priority|title }}
+          </span>
+          <span class="badge-pill" style="--bc:{{ p.status_color }}">{{ p.status|replace('_',' ')|title }}</span>
+        </div>
+      </div>
+      <div class="pc-body">
+        <h3 class="pc-name">
+          <a href="{{ url_for('project_detail', project_id=p.id) }}">{{ p.name }}</a>
+        </h3>
+        <p class="pc-client"><i class="bi bi-building"></i> {{ p.client_name or 'Internal' }}</p>
+        <p class="pc-type"><i class="bi bi-layers"></i> {{ p.project_type or 'GIS Project' }}</p>
+        {% if p.location %}
+        <p class="pc-location"><i class="bi bi-geo-alt"></i> {{ p.location }}{% if p.country %}, {{ p.country }}{% endif %}</p>
+        {% endif %}
+        {% if p.description %}
+        <p class="pc-desc">{{ p.description[:120] }}{% if p.description|length > 120 %}…{% endif %}</p>
+        {% endif %}
+
+        <!-- Tags -->
+        {% if p.tags %}
+        <div class="pc-tags">
+          {% for tag in p.tags.split(',')[:4] %}
+          <span class="pc-tag">{{ tag.strip() }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Progress -->
+        <div class="pc-progress-section">
+          <div class="pc-progress-header">
+            <span>Progress</span>
+            <span class="pc-pct">{{ p.overall_progress }}%</span>
+          </div>
+          <div class="pc-progress-bar">
+            <div class="pc-progress-fill animated-bar" style="--tw:{{ p.overall_progress }}%;background:{{ p.status_color }}"></div>
+          </div>
+        </div>
+
+        <!-- Sections summary -->
+        {% if p.sections %}
+        <div class="pc-sections-preview">
+          {% for s in p.sections[:4] %}
+          <div class="pc-section-dot" style="background:{{ s.type_color }}" title="{{ s.name }} ({{ s.progress }}%)"></div>
+          {% endfor %}
+          {% if p.sections|length > 4 %}
+          <span class="pc-more">+{{ p.sections|length - 4 }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="pc-footer">
+        <div class="pc-dates">
+          {% if p.start_date %}<span><i class="bi bi-calendar-event"></i> {{ p.start_date.strftime('%d %b %Y') }}</span>{% endif %}
+          {% if p.end_date %}
+          <span class="{% if p.days_remaining() is not none and p.days_remaining() < 0 and p.status != 'completed' %}text-danger-sm{% endif %}">
+            <i class="bi bi-calendar-check"></i> {{ p.end_date.strftime('%d %b %Y') }}
+          </span>
+          {% endif %}
+        </div>
+        <div class="pc-team">
+          {% if p.coordinator %}
+          <div class="mini-avatar" style="background:{{ p.coordinator.avatar_color }}" title="{{ p.coordinator.name }}">{{ p.coordinator.get_initials() }}</div>
+          {% endif %}
+          {% for s in p.sections %}{% for a in s.assignments[:2] %}
+          <div class="mini-avatar" style="background:{{ a.user.avatar_color }}" title="{{ a.user.name }}">{{ a.user.get_initials() }}</div>
+          {% endfor %}{% endfor %}
+        </div>
+        <a href="{{ url_for('project_detail', project_id=p.id) }}" class="pc-view-btn">
+          View <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-page">
+    <div class="empty-icon"><i class="bi bi-folder2"></i></div>
+    <h3>No projects found</h3>
+    <p>{% if current_user.role != 'client' %}Create your first GIS project to get started.{% else %}You haven't been assigned to any projects yet.{% endif %}</p>
+    {% if current_user.role != 'client' %}
+    <button class="btn-primary-glow mt-3" onclick="openModal('createProjectModal')">
+      <i class="bi bi-plus-lg"></i> Create First Project
+    </button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── CREATE PROJECT MODAL ────────────────────────── -->
+{% if current_user.role != 'client' %}
+<div class="gm-modal-backdrop" id="createProjectModal">
+  <div class="gm-modal gm-modal-lg">
+    <div class="gm-modal-header">
+      <h3><i class="bi bi-folder-plus"></i> New Project</h3>
+      <button onclick="closeModal('createProjectModal')"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <form method="POST" action="{{ url_for('create_project') }}">
+      <div class="gm-modal-body">
+        <div class="form-grid-2">
+          <div class="fg-full">
+            <label class="fl">Project Name *</label>
+            <input type="text" name="name" class="fi" required placeholder="e.g. Flood Risk Assessment – Sindh Province">
+          </div>
+          <div>
+            <label class="fl">Client / Organization</label>
+            <input type="text" name="client_name" class="fi" placeholder="e.g. UNDP Pakistan">
+          </div>
+          <div>
+            <label class="fl">Project Type</label>
+            <select name="project_type" class="fi">
+              <option value="">Select type…</option>
+              <option>Flood Risk Assessment</option>
+              <option>Land Use & Land Cover Mapping</option>
+              <option>Remote Sensing Analysis</option>
+              <option>Urban Planning Analysis</option>
+              <option>Environmental Impact Assessment</option>
+              <option>Crop Monitoring & Agriculture</option>
+              <option>Infrastructure Mapping</option>
+              <option>Hydrological Analysis</option>
+              <option>Change Detection Analysis</option>
+              <option>3D Modeling (LiDAR)</option>
+              <option>Web GIS Development</option>
+              <option>Topographic Survey</option>
+              <option>Disaster Risk Reduction</option>
+              <option>Climate Change Analysis</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="fl">Status</label>
+            <select name="status" class="fi">
+              <option value="planning" selected>Planning</option>
+              <option value="active">Active</option>
+              <option value="on_hold">On Hold</option>
+            </select>
+          </div>
+          <div>
+            <label class="fl">Priority</label>
+            <select name="priority" class="fi">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div>
+            <label class="fl">Start Date</label>
+            <input type="date" name="start_date" class="fi">
+          </div>
+          <div>
+            <label class="fl">End Date</label>
+            <input type="date" name="end_date" class="fi">
+          </div>
+          <div>
+            <label class="fl">Budget (USD)</label>
+            <input type="number" name="budget_estimated" class="fi" placeholder="45000" min="0" step="100">
+          </div>
+          <div>
+            <label class="fl">Location</label>
+            <input type="text" name="location" class="fi" placeholder="e.g. Sindh Province">
+          </div>
+          <div>
+            <label class="fl">Country</label>
+            <input type="text" name="country" class="fi" placeholder="e.g. Pakistan">
+          </div>
+          {% if developers %}
+          <div>
+            <label class="fl">Project Coordinator</label>
+            <select name="coordinator_id" class="fi">
+              {% for d in developers %}
+              <option value="{{ d.id }}" {% if d.id == current_user.id %}selected{% endif %}>{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          {% if clients %}
+          <div>
+            <label class="fl">Client User (Portal Access)</label>
+            <select name="client_user_id" class="fi">
+              <option value="">None</option>
+              {% for c in clients %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          <div class="fg-full">
+            <label class="fl">Description</label>
+            <textarea name="description" class="fi" rows="3" placeholder="Brief project description…"></textarea>
+          </div>
+          <div class="fg-full">
+            <label class="fl">Tags (comma-separated)</label>
+            <input type="text" name="tags" class="fi" placeholder="e.g. gis, sentinel-1, flood, sindh">
+          </div>
+        </div>
+      </div>
+      <div class="gm-modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeModal('createProjectModal')">Cancel</button>
+        <button type="submit" class="btn-primary-glow"><i class="bi bi-plus-lg"></i> Create Project</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Filter pills
+  document.querySelectorAll('.filter-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter;
+      document.querySelectorAll('.project-card').forEach(card => {
+        const show = filter === 'all' || card.dataset.status === filter;
+        card.style.display = show ? '' : 'none';
+      });
+    });
+  });
+  // Search
+  document.getElementById('projectSearch').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('.project-card').forEach(card => {
+      card.style.display = card.dataset.name.includes(q) ? '' : 'none';
+    });
+  });
+  // Animate progress bars
+  setTimeout(() => {
+    document.querySelectorAll('.animated-bar').forEach(el => {
+      el.style.width = el.style.getPropertyValue('--tw') || el.style.width;
+    });
+  }, 100);
+</script>
+{% endblock %}

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" id="htmlRoot">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login | Geospatial Maven Progress Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<script>
+  // Apply saved theme before paint to avoid flash
+  (function() {
+    var t = localStorage.getItem('gm-theme') || 'dark';
+    document.getElementById('htmlRoot').setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  body { background: var(--bg-primary); overflow: hidden; height: 100vh; }
+  .login-page { display: flex; height: 100vh; }
+
+  /* ── LEFT PANEL ── */
+  .login-left {
+    flex: 1.1;
+    background: linear-gradient(135deg, #0a1628 0%, #0d2144 50%, #0a1628 100%);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    position: relative; overflow: hidden; padding: 3rem;
+    transition: background 0.3s ease;
+  }
+  [data-theme="light"] .login-left {
+    background: linear-gradient(135deg, #e8f4f0 0%, #dbeafe 50%, #ede9fe 100%);
+  }
+  .login-left::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(16,185,129,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(16,185,129,0.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  .left-content { position: relative; z-index: 1; text-align: center; max-width: 420px; }
+  .brand-orb {
+    width: 88px; height: 88px;
+    background: linear-gradient(135deg, #10b981, #6366f1);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 2rem; font-size: 2.4rem; color: #fff;
+    box-shadow: 0 0 60px rgba(16,185,129,0.4), 0 0 120px rgba(99,102,241,0.2);
+    animation: pulse-orb 3s ease-in-out infinite;
+  }
+  @keyframes pulse-orb {
+    0%,100% { box-shadow: 0 0 60px rgba(16,185,129,0.4), 0 0 120px rgba(99,102,241,0.2); }
+    50% { box-shadow: 0 0 80px rgba(16,185,129,0.6), 0 0 160px rgba(99,102,241,0.3); }
+  }
+  .brand-name {
+    font-family: 'Space Grotesk', sans-serif; font-size: 2.4rem; font-weight: 700;
+    background: linear-gradient(135deg, #10b981, #818cf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: .4rem;
+  }
+  .brand-tagline { font-size: .95rem; color: var(--text-secondary); margin-bottom: 3rem; letter-spacing: .5px; }
+  .feature-list { text-align: left; }
+  .feature-item {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem 0; color: var(--text-secondary); font-size: .9rem;
+  }
+  .feature-item i { color: #10b981; font-size: 1.1rem; flex-shrink: 0; }
+  .coord-decoration {
+    position: absolute; bottom: 2rem; left: 2rem;
+    font-family: monospace; font-size: .75rem; color: rgba(16,185,129,0.35); line-height: 1.6;
+  }
+  .bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
+  .bg-orb-1 { width: 300px; height: 300px; background: rgba(16,185,129,0.06); top: -100px; right: -100px; }
+  .bg-orb-2 { width: 200px; height: 200px; background: rgba(99,102,241,0.08); bottom: 100px; left: 50px; }
+
+  /* ── RIGHT PANEL ── */
+  .login-right {
+    width: 500px; flex-shrink: 0;
+    background: var(--bg-surface);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    padding: 2rem 3rem;
+    border-left: 1px solid var(--border);
+    position: relative; overflow-y: auto;
+  }
+  .login-form-wrap { width: 100%; max-width: 400px; }
+
+  /* ── TABS ── */
+  .auth-tabs {
+    display: flex; background: var(--bg-surface-2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 3px; margin-bottom: 1.75rem; gap: 3px;
+  }
+  .auth-tab {
+    flex: 1; padding: .55rem 1rem; border: none; border-radius: 6px;
+    background: transparent; color: var(--text-muted);
+    font-size: .875rem; font-weight: 600; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: var(--transition);
+    display: flex; align-items: center; justify-content: center; gap: .4rem;
+  }
+  .auth-tab.active {
+    background: var(--bg-surface-3);
+    color: var(--text-primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  [data-theme="light"] .auth-tab.active { box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+  /* ── FORM HEADING ── */
+  .login-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin-bottom: .3rem; }
+  .login-sub { color: var(--text-secondary); font-size: .88rem; margin-bottom: 1.75rem; }
+
+  /* ── FORM FIELDS ── */
+  .form-group { margin-bottom: 1.1rem; }
+  .form-group-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1.1rem; }
+  .form-label-custom { display: block; font-size: .8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: .45rem; letter-spacing: .3px; text-transform: uppercase; }
+  .input-wrap { position: relative; }
+  .input-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: .95rem; pointer-events: none; }
+  .form-control-custom {
+    width: 100%; padding: .72rem 1rem .72rem 2.7rem;
+    background: var(--bg-surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-primary);
+    font-size: .93rem; font-family: 'Inter', sans-serif;
+    transition: var(--transition); outline: none;
+  }
+  .form-control-custom.no-icon { padding-left: 1rem; }
+  .form-control-custom:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+  .form-control-custom::placeholder { color: var(--text-muted); }
+  select.form-control-custom { cursor: pointer; }
+  .pw-toggle { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0; font-size: .95rem; }
+
+  /* ── SUBMIT BUTTON ── */
+  .login-btn {
+    width: 100%; padding: .82rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none; border-radius: var(--radius-sm);
+    color: #fff; font-size: .95rem; font-weight: 600;
+    font-family: 'Inter', sans-serif; cursor: pointer;
+    transition: var(--transition); margin-top: .5rem;
+    position: relative; overflow: hidden;
+  }
+  .login-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent); opacity: 0; transition: var(--transition); }
+  .login-btn:hover::after { opacity: 1; }
+  .login-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(16,185,129,0.3); }
+  .login-btn:active { transform: translateY(0); }
+
+  /* ── DIVIDER + DEMO ── */
+  .divider { text-align: center; color: var(--text-muted); font-size: .78rem; margin: 1.25rem 0; position: relative; }
+  .divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--border); }
+  .divider::before { left: 0; } .divider::after { right: 0; }
+  .demo-accounts { background: var(--bg-surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .9rem 1.1rem; }
+  .demo-title { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .5rem; }
+  .demo-row { display: flex; justify-content: space-between; align-items: center; padding: .28rem 0; border-bottom: 1px solid var(--border); }
+  .demo-row:last-child { border-bottom: none; }
+  .demo-role { font-size: .79rem; color: var(--text-secondary); }
+  .demo-creds { font-family: monospace; font-size: .76rem; color: var(--primary); }
+  .demo-fill-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: .74rem; transition: var(--transition); }
+  .demo-fill-btn:hover { background: var(--border); color: var(--text-primary); }
+
+  /* ── FLASH ── */
+  .alert-flash { background: var(--danger-glow); border: 1px solid rgba(239,68,68,.3); border-radius: var(--radius-sm); padding: .7rem 1rem; color: #fca5a5; font-size: .875rem; margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
+  .alert-flash.alert-success { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,.3); color: #6ee7b7; }
+
+  /* ── THEME TOGGLE (floating) ── */
+  .theme-toggle-float {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--bg-surface-2); border: 1px solid var(--border);
+    color: var(--text-secondary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; transition: var(--transition);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+  .theme-toggle-float:hover { color: var(--primary); border-color: var(--primary); box-shadow: 0 4px 16px var(--primary-glow); }
+
+  /* ── PANEL ANIMATION ── */
+  .form-panel { display: none; }
+  .form-panel.active { display: block; animation: fadeUp .25s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── ROLE SELECTOR ── */
+  .role-options { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: .45rem; }
+  .role-option { cursor: pointer; }
+  .role-option input { display: none; }
+  .role-card {
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: .6rem .9rem; text-align: center; transition: var(--transition);
+    background: var(--bg-surface-2);
+  }
+  .role-option input:checked + .role-card { border-color: var(--primary); background: var(--primary-glow); }
+  .role-card i { font-size: 1.2rem; display: block; margin-bottom: .25rem; }
+  .role-card span { font-size: .8rem; font-weight: 600; color: var(--text-secondary); }
+  .role-option input:checked + .role-card span { color: var(--primary); }
+
+  @media (max-width: 768px) {
+    .login-left { display: none; }
+    .login-right { width: 100%; border-left: none; padding: 2rem 1.5rem; }
+    body { overflow-y: auto; height: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Floating theme toggle -->
+<button class="theme-toggle-float" id="themeToggleFloat" onclick="toggleTheme()" title="Toggle light/dark mode">
+  <i class="bi bi-sun-fill" id="themeIconFloat"></i>
+</button>
+
+<div class="login-page">
+  <!-- Left branding -->
+  <div class="login-left">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="left-content">
+      <img src="{{ url_for('static', filename='img/Geospatial Maven Logo.png') }}"
+           alt="Geospatial Maven Logo"
+           style="width:145px; height:145px; margin: 0 auto 1.2rem; display:block; filter:drop-shadow(0 0 28px rgba(16,185,129,0.35));">
+      <div class="brand-name">Geospatial Maven</div>
+      <p class="brand-tagline" style="font-style:italic; font-size:1rem; letter-spacing:.5px; color:var(--primary);">Mapping a Sustainable World</p>
+      <div class="feature-list">
+        <div class="feature-item"><i class="bi bi-check-circle-fill"></i>Track projects from TOR to delivery</div>
+        <div class="feature-item"><i class="bi bi-check-circle-fill"></i>Analysis · Write-up · Learning sections</div>
+        <div class="feature-item"><i class="bi bi-check-circle-fill"></i>Timeline, budget &amp; objective tracking</div>
+        <div class="feature-item"><i class="bi bi-check-circle-fill"></i>Role-based access: Admin, Dev, Client</div>
+        <div class="feature-item"><i class="bi bi-check-circle-fill"></i>Real-time progress visualization</div>
+      </div>
+    </div>
+    <div class="coord-decoration">
+      LAT: 30.3753° N<br>
+      LON: 69.3451° E<br>
+      PROJ: WGS 84<br>
+      ZONE: 42N
+    </div>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="login-right">
+    <div class="login-form-wrap">
+
+      <!-- Tab switcher -->
+      <div class="auth-tabs">
+        <button class="auth-tab" id="tabSignIn" onclick="switchTab('signin')">
+          <i class="bi bi-box-arrow-in-right"></i> Sign In
+        </button>
+        <button class="auth-tab" id="tabSignUp" onclick="switchTab('signup')">
+          <i class="bi bi-person-plus"></i> Create Account
+        </button>
+      </div>
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+      <div class="alert-flash {% if category == 'success' %}alert-success{% endif %}">
+        <i class="bi bi-{% if category == 'success' %}check-circle{% else %}exclamation-circle{% endif %}"></i>
+        {{ msg }}
+      </div>
+      {% endfor %}
+      {% endwith %}
+
+      <!-- ── SIGN IN FORM ── -->
+      <div class="form-panel" id="panelSignIn">
+        <h1 class="login-title">Welcome back</h1>
+        <p class="login-sub">Sign in to your Geospatial Maven account</p>
+
+        <form method="POST" action="{{ url_for('login') }}">
+          <div class="form-group">
+            <label class="form-label-custom">Email Address</label>
+            <div class="input-wrap">
+              <i class="bi bi-envelope input-icon"></i>
+              <input type="email" name="email" id="emailInput" class="form-control-custom"
+                     placeholder="you@geospatialmaven.com" required autocomplete="email">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label-custom">Password</label>
+            <div class="input-wrap">
+              <i class="bi bi-lock input-icon"></i>
+              <input type="password" name="password" id="pwInput" class="form-control-custom"
+                     placeholder="Enter your password" required autocomplete="current-password">
+              <button type="button" class="pw-toggle" onclick="togglePw('pwInput','pwIcon')">
+                <i class="bi bi-eye" id="pwIcon"></i>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="login-btn">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+          </button>
+        </form>
+
+        <div class="divider">Demo Accounts</div>
+        <div class="demo-accounts">
+          <div class="demo-title">Click to auto-fill credentials</div>
+          <div class="demo-row">
+            <span class="demo-role"><i class="bi bi-shield-fill-check" style="color:#6366f1"></i> Super Admin</span>
+            <span class="demo-creds">admin@geospatialmaven.com</span>
+            <button class="demo-fill-btn" onclick="fillCreds('admin@geospatialmaven.com','admin123')">Fill</button>
+          </div>
+          <div class="demo-row">
+            <span class="demo-role"><i class="bi bi-code-slash" style="color:#10b981"></i> Developer</span>
+            <span class="demo-creds">sarah@geospatialmaven.com</span>
+            <button class="demo-fill-btn" onclick="fillCreds('sarah@geospatialmaven.com','dev123')">Fill</button>
+          </div>
+          <div class="demo-row">
+            <span class="demo-role"><i class="bi bi-person-fill" style="color:#f59e0b"></i> Client</span>
+            <span class="demo-creds">client@undp.org</span>
+            <button class="demo-fill-btn" onclick="fillCreds('client@undp.org','client123')">Fill</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SIGN UP FORM ── -->
+      <div class="form-panel" id="panelSignUp">
+        <h1 class="login-title">Create Account</h1>
+        <p class="login-sub">Join Geospatial Maven as a team member or client</p>
+
+        <form method="POST" action="{{ url_for('signup') }}">
+          <div class="form-group-row">
+            <div>
+              <label class="form-label-custom">Full Name *</label>
+              <div class="input-wrap">
+                <i class="bi bi-person input-icon"></i>
+                <input type="text" name="name" class="form-control-custom"
+                       placeholder="Your full name" required autocomplete="name">
+              </div>
+            </div>
+            <div>
+              <label class="form-label-custom">Department</label>
+              <div class="input-wrap">
+                <i class="bi bi-building input-icon"></i>
+                <input type="text" name="department" class="form-control-custom"
+                       placeholder="e.g. GIS Team">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label-custom">Email Address *</label>
+            <div class="input-wrap">
+              <i class="bi bi-envelope input-icon"></i>
+              <input type="email" name="email" class="form-control-custom"
+                     placeholder="you@example.com" required autocomplete="email">
+            </div>
+          </div>
+
+          <div class="form-group-row">
+            <div>
+              <label class="form-label-custom">Password *</label>
+              <div class="input-wrap">
+                <i class="bi bi-lock input-icon"></i>
+                <input type="password" name="password" id="pwInput2" class="form-control-custom"
+                       placeholder="Min. 6 characters" required>
+                <button type="button" class="pw-toggle" onclick="togglePw('pwInput2','pwIcon2')">
+                  <i class="bi bi-eye" id="pwIcon2"></i>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label-custom">Confirm Password *</label>
+              <div class="input-wrap">
+                <i class="bi bi-lock-fill input-icon"></i>
+                <input type="password" name="confirm_password" class="form-control-custom"
+                       placeholder="Repeat password" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label-custom">Specialization</label>
+            <div class="input-wrap">
+              <i class="bi bi-geo-alt input-icon"></i>
+              <input type="text" name="specialization" class="form-control-custom"
+                     placeholder="e.g. Remote Sensing, Hydrology...">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label-custom">I am joining as *</label>
+            <div class="role-options">
+              <label class="role-option">
+                <input type="radio" name="role" value="developer" checked>
+                <div class="role-card">
+                  <i class="bi bi-code-slash" style="color:#10b981"></i>
+                  <span>Developer / Analyst</span>
+                </div>
+              </label>
+              <label class="role-option">
+                <input type="radio" name="role" value="client">
+                <div class="role-card">
+                  <i class="bi bi-briefcase" style="color:#f59e0b"></i>
+                  <span>Client / Stakeholder</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="login-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
+            <i class="bi bi-person-check me-2"></i>Create Account
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── Theme ───────────────────────────────────
+  function toggleTheme() {
+    var root = document.getElementById('htmlRoot');
+    var current = root.getAttribute('data-theme') || 'dark';
+    var next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('gm-theme', next);
+    updateThemeIcon(next);
+  }
+  function updateThemeIcon(theme) {
+    var icon = document.getElementById('themeIconFloat');
+    if (icon) icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+  }
+  updateThemeIcon(document.getElementById('htmlRoot').getAttribute('data-theme') || 'dark');
+
+  // ─── Tabs ────────────────────────────────────
+  function switchTab(tab) {
+    var isSignup = (tab === 'signup');
+    document.getElementById('panelSignIn').classList.toggle('active', !isSignup);
+    document.getElementById('panelSignUp').classList.toggle('active', isSignup);
+    document.getElementById('tabSignIn').classList.toggle('active', !isSignup);
+    document.getElementById('tabSignUp').classList.toggle('active', isSignup);
+  }
+
+  // Detect ?tab=signup in URL
+  var initTab = (new URLSearchParams(window.location.search).get('tab') === 'signup') ? 'signup' : 'signin';
+  // Also stay on signup if there was a flash error (after a failed signup POST)
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, msg in messages %}{% endfor %}
+  {% endwith %}
+  switchTab(initTab);
+
+  // ─── Helpers ─────────────────────────────────
+  function togglePw(inputId, iconId) {
+    var i = document.getElementById(inputId);
+    var icon = document.getElementById(iconId);
+    if (i.type === 'password') { i.type = 'text'; icon.className = 'bi bi-eye-slash'; }
+    else { i.type = 'password'; icon.className = 'bi bi-eye'; }
+  }
+  function fillCreds(email, pw) {
+    document.getElementById('emailInput').value = email;
+    document.getElementById('pwInput').value = pw;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Accomplished Projects{% endblock %}
+{% block page_title %}Accomplished Projects{% endblock %}
+{% block content %}
+<div class="page-wrap">
+  <div style="text-align:center; padding: 5rem 2rem; max-width:540px; margin:0 auto;">
+    <div style="font-size:4rem; margin-bottom:1.5rem;">🗺️</div>
+    <h2 style="font-family:'Space Grotesk',sans-serif; font-size:1.4rem; margin-bottom:.75rem; color:var(--text-primary)">
+      Project Gallery — Local Only
+    </h2>
+    <p style="color:var(--text-secondary); font-size:.95rem; line-height:1.8; margin-bottom:2rem;">
+      The Accomplished Projects gallery stores map images and data files on your local machine.
+      It's fully accessible when you run the dashboard locally at
+      <code style="background:var(--bg-surface-2); padding:.1rem .5rem; border-radius:4px; color:var(--primary)">localhost:5000</code>.
+    </p>
+    <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; text-align:left; margin-bottom:2rem;">
+      <div style="font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); margin-bottom:.85rem;">
+        21 Completed Projects include
+      </div>
+      {% set project_list = [
+        ('Flood Risk Assessment', 'Sindh & Makran, Dera Ismail Khan, Nowshera, Karachi, Swat'),
+        ('Snow & Runoff Analysis', 'Chitral, Gilgit River Basin, Himalayan, Hunza GLOF'),
+        ('Drought & Climate', 'Pakistan Drought, Peshawar Division Climate Change, Bannu Basin'),
+        ('Hazard Mapping', 'Landslide Simulations, Kaghan Flood Susceptibility, SUPARCO Landslide'),
+        ('Land Use & Ecology', 'Poyang Lake, Thailand Crops, UlaanBaatar AgriFarm, District Swat'),
+        ('Hydrology', 'River Indus Catchment Turbela, Mulkhow Dam'),
+      ] %}
+      {% for category, names in project_list %}
+      <div style="display:flex; gap:.75rem; padding:.4rem 0; border-bottom:1px solid var(--border); font-size:.85rem;">
+        <span style="color:var(--primary); font-weight:600; min-width:160px; flex-shrink:0;">{{ category }}</span>
+        <span style="color:var(--text-secondary)">{{ names }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <a href="{{ url_for('projects_list') }}" class="btn-primary-glow">
+      <i class="bi bi-folder2-open"></i> View Active Projects
+    </a>
+  </div>
+</div>
+{% endblock %}

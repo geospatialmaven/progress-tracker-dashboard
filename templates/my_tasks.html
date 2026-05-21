@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}My Tasks{% endblock %}
+{% block page_title %}My Tasks{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+  <div class="page-header">
+    <div>
+      <h2 class="page-h2">My Tasks</h2>
+      <p class="page-sub">{{ tasks|length }} task{% if tasks|length != 1 %}s{% endif %} assigned to you</p>
+    </div>
+    <div class="filter-pills">
+      <button class="filter-pill active" data-tfilter="all">All ({{ tasks|length }})</button>
+      <button class="filter-pill" data-tfilter="todo">To Do</button>
+      <button class="filter-pill" data-tfilter="in_progress">In Progress</button>
+      <button class="filter-pill" data-tfilter="review">Review</button>
+      <button class="filter-pill" data-tfilter="completed">Completed</button>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="kpi-grid kpi-grid-4">
+    <div class="kpi-card" style="--kc:#6b7280">
+      <div class="kpi-icon"><i class="bi bi-list-task"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ tasks|selectattr('status','eq','todo')|list|length }}</div><div class="kpi-label">To Do</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#3b82f6">
+      <div class="kpi-icon"><i class="bi bi-play-circle"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ tasks|selectattr('status','eq','in_progress')|list|length }}</div><div class="kpi-label">In Progress</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#10b981">
+      <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ tasks|selectattr('status','eq','completed')|list|length }}</div><div class="kpi-label">Completed</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#ef4444">
+      <div class="kpi-icon"><i class="bi bi-exclamation-circle"></i></div>
+      <div class="kpi-body">
+        <div class="kpi-value">{{ tasks|selectattr('due_date')|list|selectattr('status','ne','completed')|list|length }}</div>
+        <div class="kpi-label">Overdue</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tasks Table -->
+  {% if tasks %}
+  <div class="dash-panel">
+    <div class="table-wrap">
+      <table class="gm-table" id="myTasksTable">
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Project / Section</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Due Date</th>
+            <th>Progress</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tasks %}
+          <tr class="task-row" data-tstatus="{{ t.status }}" id="myTask-{{ t.id }}">
+            <td>
+              <div class="task-title-cell {% if t.status == 'completed' %}done{% endif %}">{{ t.title }}</div>
+              {% if t.notes %}<div class="task-notes-preview">{{ t.notes[:60] }}{% if t.notes|length > 60 %}…{% endif %}</div>{% endif %}
+            </td>
+            <td>
+              {% if t.section %}
+              <div class="text-muted-sm">{{ t.section.project.name[:30] if t.section.project else '—' }}</div>
+              <div style="font-size:.8rem;color:var(--text-muted)">{{ t.section.name[:30] }}</div>
+              {% else %}—{% endif %}
+            </td>
+            <td><span class="priority-badge" style="--pc:{{ t.priority_color }}">{{ t.priority|title }}</span></td>
+            <td>
+              <select class="status-select" onchange="updateMyTaskStatus({{ t.id }}, this)">
+                {% for s in ['todo','in_progress','review','completed','blocked'] %}
+                <option value="{{ s }}" {% if t.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <span class="{% if t.is_overdue() %}text-danger-sm{% else %}text-muted-sm{% endif %}">
+                {% if t.due_date %}
+                {% if t.is_overdue() %}<i class="bi bi-exclamation-circle"></i> {% endif %}
+                {{ t.due_date.strftime('%d %b %Y') }}
+                {% else %}—{% endif %}
+              </span>
+            </td>
+            <td>
+              <div class="inline-progress">
+                <div class="mini-prog-bar wide"><div style="width:{{ t.progress }}%;background:{{ t.status_color }}"></div></div>
+                <span>{{ t.progress }}%</span>
+              </div>
+            </td>
+            <td>
+              {% if t.section %}
+              <a href="{{ url_for('project_detail', project_id=t.section.project_id) }}#sections" class="icon-btn" title="View project">
+                <i class="bi bi-box-arrow-up-right"></i>
+              </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-page">
+    <div class="empty-icon"><i class="bi bi-check2-all"></i></div>
+    <h3>No tasks assigned</h3>
+    <p>You haven't been assigned to any tasks yet. Ask your project lead to assign you.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateMyTaskStatus(id, sel) {
+  const newStatus = sel.value;
+  const prog = newStatus === 'completed' ? 100 : newStatus === 'in_progress' ? 50 : 0;
+  fetch(`/tasks/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: newStatus, progress: prog})
+  }).then(() => {
+    const row = document.getElementById('myTask-' + id);
+    if (row) row.dataset.tstatus = newStatus;
+    const titleEl = row ? row.querySelector('.task-title-cell') : null;
+    if (titleEl) titleEl.classList.toggle('done', newStatus === 'completed');
+  });
+}
+
+document.querySelectorAll('[data-tfilter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-tfilter]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const f = btn.dataset.tfilter;
+    document.querySelectorAll('.task-row').forEach(row => {
+      row.style.display = f === 'all' || row.dataset.tstatus === f ? '' : 'none';
+    });
+  });
+});
+</script>
+{% endblock %}
