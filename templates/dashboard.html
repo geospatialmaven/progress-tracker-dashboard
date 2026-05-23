@@ -88,23 +88,35 @@
       <div class="project-list-mini">
         {% for p in projects %}
         <a href="{{ url_for('project_detail', project_id=p.id) }}" class="project-mini-card">
-          <div class="pmc-left">
-            <div class="pmc-status-dot" style="background:{{ p.status_color }}"></div>
+          <!-- Asana-style circular progress ring -->
+          <div class="pmc-ring-wrap" title="{{ p.overall_progress }}% complete">
+            {% set r = 16 %}{% set c = 2*3.14159*r %}
+            <svg width="44" height="44" viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="{{ r }}" fill="none" stroke="var(--border)" stroke-width="3.5"/>
+              <circle cx="22" cy="22" r="{{ r }}" fill="none" stroke="{{ p.status_color }}" stroke-width="3.5"
+                stroke-dasharray="{{ c }}"
+                stroke-dashoffset="{{ c - (c * p.overall_progress / 100) }}"
+                stroke-linecap="round"
+                transform="rotate(-90 22 22)"/>
+              <text x="22" y="26" text-anchor="middle" font-size="8" font-weight="700"
+                    fill="{{ p.status_color }}" font-family="Inter,sans-serif">{{ p.overall_progress }}%</text>
+            </svg>
+          </div>
+          <div class="pmc-left" style="flex:1; min-width:0;">
             <div>
               <div class="pmc-name">{{ p.name }}</div>
               <div class="pmc-meta">
                 <span class="badge-pill" style="--bc:{{ p.status_color }}">{{ p.status|replace('_',' ')|title }}</span>
                 <span class="pmc-client">{{ p.client_name or 'Internal' }}</span>
+                {% if p.priority == 'high' or p.priority == 'critical' %}
+                <span style="font-size:.72rem; color:{{ p.priority_color }}; font-weight:700">
+                  <i class="bi bi-arrow-up"></i>{{ p.priority|title }}
+                </span>
+                {% endif %}
               </div>
             </div>
           </div>
           <div class="pmc-right">
-            <div class="pmc-progress-wrap">
-              <div class="pmc-progress-bar">
-                <div class="pmc-progress-fill" style="width:{{ p.overall_progress }}%;background:{{ p.status_color }}"></div>
-              </div>
-              <span class="pmc-pct">{{ p.overall_progress }}%</span>
-            </div>
             {% if p.days_remaining() is not none %}
             <div class="pmc-days {% if p.days_remaining() < 0 %}overdue{% elif p.days_remaining() < 14 %}urgent{% endif %}">
               {% if p.days_remaining() < 0 %}
@@ -170,6 +182,16 @@
           <span class="cl-item" style="--cc:#6366f1"><i></i>Planning: {{ planning_count }}</span>
           <span class="cl-item" style="--cc:#10b981"><i></i>Active: {{ active_count }}</span>
           <span class="cl-item" style="--cc:#3b82f6"><i></i>Completed: {{ completed_count }}</span>
+        </div>
+      </div>
+
+      <!-- Activity Feed (Notion-style) -->
+      <div class="dash-panel">
+        <div class="panel-header">
+          <h3 class="panel-title"><i class="bi bi-activity"></i> Activity Feed</h3>
+        </div>
+        <div id="dashActivityFeed">
+          <div style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:.75rem 0">Loading…</div>
         </div>
       </div>
 
@@ -239,6 +261,25 @@
   const h = new Date().getHours();
   const greet = h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
   document.getElementById('greeting').textContent = greet + ' {{ current_user.name.split()[0] }}!';
+
+  // Activity feed (Notion)
+  fetch('/api/activity').then(r=>r.json()).then(logs => {
+    const feed = document.getElementById('dashActivityFeed');
+    if (!logs || !logs.length) {
+      feed.innerHTML = '<div style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:.75rem 0">No activity yet</div>';
+      return;
+    }
+    feed.innerHTML = logs.slice(0,8).map(l => `
+      <div style="display:flex;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border);">
+        <div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.7rem;background:${l.color}22;color:${l.color}">
+          <i class="bi ${l.icon}"></i>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.8rem;color:var(--text-primary);line-height:1.3"><strong>${l.user}</strong> ${l.description}</div>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">${l.ago}</div>
+        </div>
+      </div>`).join('');
+  }).catch(()=>{});
 
   // Status donut chart
   const ctx = document.getElementById('statusChart').getContext('2d');

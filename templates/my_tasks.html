@@ -2,135 +2,421 @@
 {% block title %}My Tasks{% endblock %}
 {% block page_title %}My Tasks{% endblock %}
 
+{% block head %}
+<style>
+/* ── VIEW TOGGLE ───────────────────────────── */
+.view-toggle { display:flex; gap:.35rem; background:var(--bg-surface-2); border:1px solid var(--border); border-radius:8px; padding:3px; }
+.view-btn { padding:.4rem .9rem; border:none; border-radius:6px; background:transparent; color:var(--text-muted); font-size:.82rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:.35rem; transition:var(--transition); font-family:'Inter',sans-serif; }
+.view-btn.active { background:var(--bg-surface-3); color:var(--text-primary); box-shadow:0 1px 4px rgba(0,0,0,.15); }
+
+/* ── KANBAN BOARD (Trello) ─────────────────── */
+.kanban-wrap { overflow-x:auto; padding-bottom:1rem; }
+.kanban-board { display:flex; gap:1rem; min-width:max-content; align-items:flex-start; }
+.kanban-col { width:280px; flex-shrink:0; background:var(--bg-surface-2); border:1px solid var(--border); border-radius:12px; padding:.75rem; }
+.kanban-col.drag-over { border-color:var(--primary); background:var(--primary-glow); }
+.kanban-col-header { display:flex; align-items:center; gap:.5rem; padding:.3rem 0 .7rem; margin-bottom:.35rem; border-bottom:1px solid var(--border); }
+.kanban-col-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.kanban-col-title { font-size:.82rem; font-weight:700; color:var(--text-primary); text-transform:uppercase; letter-spacing:.5px; flex:1; }
+.kanban-col-count { font-size:.75rem; background:var(--bg-surface-3); color:var(--text-muted); border-radius:10px; padding:1px 7px; font-weight:600; }
+.kanban-cards { display:flex; flex-direction:column; gap:.55rem; min-height:60px; }
+.kanban-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:9px; padding:.75rem; cursor:grab; transition:var(--transition); user-select:none; }
+.kanban-card:hover { border-color:var(--primary); box-shadow:0 4px 12px rgba(0,0,0,.12); transform:translateY(-1px); }
+.kanban-card.dragging { opacity:.4; transform:scale(.97); cursor:grabbing; }
+.kanban-card.drop-target { border:2px dashed var(--primary); }
+.kc-top { display:flex; justify-content:space-between; align-items:flex-start; gap:.4rem; margin-bottom:.5rem; }
+.kc-title { font-size:.88rem; font-weight:600; color:var(--text-primary); line-height:1.35; flex:1; }
+.kc-title.done { text-decoration:line-through; color:var(--text-muted); }
+.kc-section-tag { font-size:.7rem; padding:2px 6px; border-radius:4px; color:#fff; font-weight:600; white-space:nowrap; }
+.kc-meta { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.45rem; }
+.kc-due { font-size:.74rem; color:var(--text-muted); display:flex; align-items:center; gap:.25rem; }
+.kc-due.overdue { color:#ef4444; }
+.kc-pts { font-size:.72rem; background:var(--bg-surface-2); color:var(--text-muted); padding:1px 5px; border-radius:4px; font-weight:600; }
+.kc-sprint { font-size:.7rem; color:var(--primary); font-weight:600; }
+.kc-progress { height:3px; border-radius:2px; background:var(--border); margin-top:.5rem; overflow:hidden; }
+.kc-progress-fill { height:100%; border-radius:2px; transition:width .3s; }
+.kanban-add-btn { width:100%; margin-top:.6rem; padding:.45rem; border:1px dashed var(--border); border-radius:8px; background:none; color:var(--text-muted); font-size:.8rem; cursor:pointer; transition:var(--transition); font-family:'Inter',sans-serif; }
+.kanban-add-btn:hover { border-color:var(--primary); color:var(--primary); background:var(--primary-glow); }
+
+/* ── PRIORITY BADGE ────────────────────────── */
+.p-badge { display:inline-flex; align-items:center; gap:.25rem; font-size:.7rem; font-weight:700; padding:2px 6px; border-radius:4px; }
+
+/* ── CALENDAR VIEW (ClickUp) ───────────────── */
+.calendar-wrap { }
+.cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+.cal-month-title { font-family:'Space Grotesk',sans-serif; font-size:1.1rem; font-weight:700; color:var(--text-primary); }
+.cal-nav-btn { background:var(--bg-surface-2); border:1px solid var(--border); border-radius:6px; width:32px; height:32px; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; transition:var(--transition); }
+.cal-nav-btn:hover { border-color:var(--primary); color:var(--primary); }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+.cal-dow { text-align:center; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); padding:.4rem 0; }
+.cal-cell { min-height:80px; background:var(--bg-surface-2); border:1px solid var(--border); border-radius:8px; padding:.4rem; position:relative; }
+.cal-cell.today { border-color:var(--primary); background:var(--primary-glow); }
+.cal-cell.other-month { opacity:.4; }
+.cal-day-num { font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:.3rem; }
+.cal-cell.today .cal-day-num { color:var(--primary); font-weight:800; }
+.cal-task-dot { font-size:.72rem; padding:1px 5px; border-radius:3px; color:#fff; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; cursor:pointer; display:block; }
+.cal-more { font-size:.68rem; color:var(--text-muted); }
+
+/* ── SPRINT GROUPING (Jira/Linear) ────────── */
+.sprint-header { display:flex; align-items:center; gap:.6rem; padding:.5rem 0; margin:1rem 0 .5rem; }
+.sprint-badge { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; font-size:.72rem; font-weight:700; padding:3px 9px; border-radius:10px; }
+.sprint-pts { font-size:.78rem; color:var(--text-muted); }
+.sprint-progress { flex:1; max-width:120px; height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+.sprint-progress-fill { height:100%; border-radius:2px; background:linear-gradient(90deg,#6366f1,#10b981); }
+
+/* ── ACTIVITY FEED MINI (Notion) ──────────── */
+.activity-sidebar { width:280px; flex-shrink:0; }
+.activity-item { display:flex; gap:.6rem; padding:.6rem 0; border-bottom:1px solid var(--border); }
+.activity-item:last-child { border-bottom:none; }
+.act-icon { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.75rem; flex-shrink:0; }
+.act-body { flex:1; min-width:0; }
+.act-desc { font-size:.8rem; color:var(--text-primary); line-height:1.35; }
+.act-time { font-size:.72rem; color:var(--text-muted); margin-top:.15rem; }
+
+/* ── VIEWS CONTAINER ───────────────────────── */
+.tasks-main { display:flex; gap:1.25rem; align-items:flex-start; }
+.tasks-content { flex:1; min-width:0; }
+#viewBoard, #viewList, #viewCalendar { display:none; }
+#viewBoard.active, #viewList.active, #viewCalendar.active { display:block; }
+
+/* ── Monday-style column colors ────────────── */
+.col-todo { --col:#6b7280; }
+.col-in_progress { --col:#3b82f6; }
+.col-review { --col:#f59e0b; }
+.col-completed { --col:#10b981; }
+.col-blocked { --col:#ef4444; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-wrap">
-  <div class="page-header">
+
+  <!-- Header row -->
+  <div class="page-header" style="flex-wrap:wrap; gap:.75rem;">
     <div>
       <h2 class="page-h2">My Tasks</h2>
       <p class="page-sub">{{ tasks|length }} task{% if tasks|length != 1 %}s{% endif %} assigned to you</p>
     </div>
-    <div class="filter-pills">
-      <button class="filter-pill active" data-tfilter="all">All ({{ tasks|length }})</button>
-      <button class="filter-pill" data-tfilter="todo">To Do</button>
-      <button class="filter-pill" data-tfilter="in_progress">In Progress</button>
-      <button class="filter-pill" data-tfilter="review">Review</button>
-      <button class="filter-pill" data-tfilter="completed">Completed</button>
-    </div>
-  </div>
-
-  <!-- Stats row -->
-  <div class="kpi-grid kpi-grid-4">
-    <div class="kpi-card" style="--kc:#6b7280">
-      <div class="kpi-icon"><i class="bi bi-list-task"></i></div>
-      <div class="kpi-body"><div class="kpi-value">{{ tasks|selectattr('status','eq','todo')|list|length }}</div><div class="kpi-label">To Do</div></div>
-    </div>
-    <div class="kpi-card" style="--kc:#3b82f6">
-      <div class="kpi-icon"><i class="bi bi-play-circle"></i></div>
-      <div class="kpi-body"><div class="kpi-value">{{ tasks|selectattr('status','eq','in_progress')|list|length }}</div><div class="kpi-label">In Progress</div></div>
-    </div>
-    <div class="kpi-card" style="--kc:#10b981">
-      <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
-      <div class="kpi-body"><div class="kpi-value">{{ tasks|selectattr('status','eq','completed')|list|length }}</div><div class="kpi-label">Completed</div></div>
-    </div>
-    <div class="kpi-card" style="--kc:#ef4444">
-      <div class="kpi-icon"><i class="bi bi-exclamation-circle"></i></div>
-      <div class="kpi-body">
-        <div class="kpi-value">{{ tasks|selectattr('due_date')|list|selectattr('status','ne','completed')|list|length }}</div>
-        <div class="kpi-label">Overdue</div>
+    <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
+      <!-- Sprint filter -->
+      {% if sprints %}
+      <select id="sprintFilter" class="form-control-custom no-icon" style="width:auto;padding:.4rem .8rem;font-size:.82rem;" onchange="filterSprint(this.value)">
+        <option value="">All Sprints</option>
+        {% for sp in sprints %}<option value="{{ sp }}">{{ sp }}</option>{% endfor %}
+      </select>
+      {% endif %}
+      <!-- View toggle -->
+      <div class="view-toggle">
+        <button class="view-btn active" id="btnBoard" onclick="switchView('Board')">
+          <i class="bi bi-kanban"></i> Board
+        </button>
+        <button class="view-btn" id="btnList" onclick="switchView('List')">
+          <i class="bi bi-list-ul"></i> List
+        </button>
+        <button class="view-btn" id="btnCalendar" onclick="switchView('Calendar')">
+          <i class="bi bi-calendar3"></i> Calendar
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Tasks Table -->
-  {% if tasks %}
-  <div class="dash-panel">
-    <div class="table-wrap">
-      <table class="gm-table" id="myTasksTable">
-        <thead>
-          <tr>
-            <th>Task</th>
-            <th>Project / Section</th>
-            <th>Priority</th>
-            <th>Status</th>
-            <th>Due Date</th>
-            <th>Progress</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for t in tasks %}
-          <tr class="task-row" data-tstatus="{{ t.status }}" id="myTask-{{ t.id }}">
-            <td>
-              <div class="task-title-cell {% if t.status == 'completed' %}done{% endif %}">{{ t.title }}</div>
-              {% if t.notes %}<div class="task-notes-preview">{{ t.notes[:60] }}{% if t.notes|length > 60 %}…{% endif %}</div>{% endif %}
-            </td>
-            <td>
-              {% if t.section %}
-              <div class="text-muted-sm">{{ t.section.project.name[:30] if t.section.project else '—' }}</div>
-              <div style="font-size:.8rem;color:var(--text-muted)">{{ t.section.name[:30] }}</div>
-              {% else %}—{% endif %}
-            </td>
-            <td><span class="priority-badge" style="--pc:{{ t.priority_color }}">{{ t.priority|title }}</span></td>
-            <td>
-              <select class="status-select" onchange="updateMyTaskStatus({{ t.id }}, this)">
-                {% for s in ['todo','in_progress','review','completed','blocked'] %}
-                <option value="{{ s }}" {% if t.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
-                {% endfor %}
-              </select>
-            </td>
-            <td>
-              <span class="{% if t.is_overdue() %}text-danger-sm{% else %}text-muted-sm{% endif %}">
-                {% if t.due_date %}
-                {% if t.is_overdue() %}<i class="bi bi-exclamation-circle"></i> {% endif %}
-                {{ t.due_date.strftime('%d %b %Y') }}
-                {% else %}—{% endif %}
-              </span>
-            </td>
-            <td>
-              <div class="inline-progress">
-                <div class="mini-prog-bar wide"><div style="width:{{ t.progress }}%;background:{{ t.status_color }}"></div></div>
-                <span>{{ t.progress }}%</span>
-              </div>
-            </td>
-            <td>
-              {% if t.section %}
-              <a href="{{ url_for('project_detail', project_id=t.section.project_id) }}#sections" class="icon-btn" title="View project">
-                <i class="bi bi-box-arrow-up-right"></i>
-              </a>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <!-- KPI row (Monday.com-style colored stats) -->
+  <div class="kpi-grid kpi-grid-5" style="margin-bottom:1.25rem;">
+    <div class="kpi-card" style="--kc:#6b7280">
+      <div class="kpi-icon"><i class="bi bi-inbox"></i></div>
+      <div class="kpi-body"><div class="kpi-value" id="kpiTodo">{{ tasks|selectattr('status','eq','todo')|list|length }}</div><div class="kpi-label">To Do</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#3b82f6">
+      <div class="kpi-icon"><i class="bi bi-play-circle"></i></div>
+      <div class="kpi-body"><div class="kpi-value" id="kpiInProgress">{{ tasks|selectattr('status','eq','in_progress')|list|length }}</div><div class="kpi-label">In Progress</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#f59e0b">
+      <div class="kpi-icon"><i class="bi bi-eye"></i></div>
+      <div class="kpi-body"><div class="kpi-value" id="kpiReview">{{ tasks|selectattr('status','eq','review')|list|length }}</div><div class="kpi-label">In Review</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#10b981">
+      <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
+      <div class="kpi-body"><div class="kpi-value" id="kpiDone">{{ tasks|selectattr('status','eq','completed')|list|length }}</div><div class="kpi-label">Done</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#ef4444">
+      <div class="kpi-icon"><i class="bi bi-exclamation-circle"></i></div>
+      <div class="kpi-body"><div class="kpi-value" id="kpiBlocked">{{ tasks|selectattr('status','eq','blocked')|list|length }}</div><div class="kpi-label">Blocked</div></div>
     </div>
   </div>
-  {% else %}
-  <div class="empty-page">
-    <div class="empty-icon"><i class="bi bi-check2-all"></i></div>
-    <h3>No tasks assigned</h3>
-    <p>You haven't been assigned to any tasks yet. Ask your project lead to assign you.</p>
-  </div>
-  {% endif %}
+
+  <!-- Main content + activity sidebar -->
+  <div class="tasks-main">
+
+    <!-- ── TASKS CONTENT ──────────────────────── -->
+    <div class="tasks-content">
+
+      <!-- ══ BOARD VIEW (Trello Kanban) ══ -->
+      <div id="viewBoard" class="active">
+        <div class="kanban-wrap">
+          <div class="kanban-board" id="kanbanBoard">
+
+            {% set columns = [
+              ('todo',        'To Do',      '#6b7280'),
+              ('in_progress', 'In Progress','#3b82f6'),
+              ('review',      'In Review',  '#f59e0b'),
+              ('completed',   'Done',       '#10b981'),
+              ('blocked',     'Blocked',    '#ef4444')
+            ] %}
+
+            {% for col_status, col_title, col_color in columns %}
+            {% set col_tasks = tasks | selectattr('status', 'eq', col_status) | list %}
+            <div class="kanban-col col-{{ col_status }}"
+                 data-status="{{ col_status }}"
+                 ondragover="event.preventDefault(); this.classList.add('drag-over')"
+                 ondragleave="this.classList.remove('drag-over')"
+                 ondrop="dropCard(event, '{{ col_status }}')">
+
+              <div class="kanban-col-header">
+                <div class="kanban-col-dot" style="background:{{ col_color }}"></div>
+                <span class="kanban-col-title">{{ col_title }}</span>
+                <span class="kanban-col-count" id="cnt-{{ col_status }}">{{ col_tasks|length }}</span>
+              </div>
+
+              <div class="kanban-cards" id="cards-{{ col_status }}">
+                {% for t in col_tasks %}
+                <div class="kanban-card"
+                     draggable="true"
+                     id="kcard-{{ t.id }}"
+                     data-id="{{ t.id }}"
+                     data-status="{{ t.status }}"
+                     data-sprint="{{ t.sprint_label or '' }}"
+                     ondragstart="dragStart(event, {{ t.id }})"
+                     ondragend="dragEnd(event)">
+                  <div class="kc-top">
+                    <div class="kc-title {% if t.status == 'completed' %}done{% endif %}">{{ t.title }}</div>
+                    <span class="p-badge" style="background:{{ t.priority_color }}22; color:{{ t.priority_color }}">
+                      {% if t.priority == 'critical' %}<i class="bi bi-fire"></i>
+                      {% elif t.priority == 'high' %}<i class="bi bi-arrow-up"></i>
+                      {% elif t.priority == 'medium' %}<i class="bi bi-dash"></i>
+                      {% else %}<i class="bi bi-arrow-down"></i>{% endif %}
+                      {{ t.priority|title }}
+                    </span>
+                  </div>
+                  {% if t.section %}
+                  <div><span class="kc-section-tag" style="background:{{ t.section.type_color }}">{{ t.section.type_label }}</span></div>
+                  {% endif %}
+                  <div class="kc-meta">
+                    {% if t.due_date %}
+                    <span class="kc-due {% if t.is_overdue() %}overdue{% endif %}">
+                      <i class="bi bi-calendar3"></i>
+                      {{ t.due_date.strftime('%d %b') }}
+                    </span>
+                    {% endif %}
+                    {% if t.story_points %}<span class="kc-pts">{{ t.story_points }}pt</span>{% endif %}
+                    {% if t.sprint_label %}<span class="kc-sprint">{{ t.sprint_label }}</span>{% endif %}
+                  </div>
+                  {% if t.progress > 0 %}
+                  <div class="kc-progress">
+                    <div class="kc-progress-fill" style="width:{{ t.progress }}%; background:{{ t.status_color }}"></div>
+                  </div>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+
+              <button class="kanban-add-btn" onclick="quickAddTask('{{ col_status }}')">
+                <i class="bi bi-plus"></i> Add task
+              </button>
+            </div>
+            {% endfor %}
+
+          </div>
+        </div><!-- /kanban-wrap -->
+      </div><!-- /viewBoard -->
+
+      <!-- ══ LIST VIEW (with Sprint grouping — Jira/Linear) ══ -->
+      <div id="viewList">
+
+        <!-- Filter pills -->
+        <div class="filter-pills" style="margin-bottom:1rem;">
+          <button class="filter-pill active" data-tfilter="all">All ({{ tasks|length }})</button>
+          <button class="filter-pill" data-tfilter="todo">To Do</button>
+          <button class="filter-pill" data-tfilter="in_progress">In Progress</button>
+          <button class="filter-pill" data-tfilter="review">Review</button>
+          <button class="filter-pill" data-tfilter="completed">Done</button>
+          <button class="filter-pill" data-tfilter="blocked" style="--fp:#ef4444">Blocked</button>
+        </div>
+
+        {% if sprints %}
+          {% for sprint in sprints %}
+          {% set sp_tasks = tasks | selectattr('sprint_label','eq',sprint) | list %}
+          {% set done_pts = sp_tasks | selectattr('status','eq','completed') | sum(attribute='story_points') %}
+          {% set total_pts = sp_tasks | sum(attribute='story_points') %}
+          <div class="sprint-header">
+            <span class="sprint-badge"><i class="bi bi-lightning-charge-fill"></i> {{ sprint }}</span>
+            <span class="sprint-pts">{{ sp_tasks|length }} tasks · {{ total_pts }} pts</span>
+            <div class="sprint-progress">
+              <div class="sprint-progress-fill" style="width:{% if total_pts %}{{ ((done_pts/total_pts)*100)|int }}%{% else %}0%{% endif %}"></div>
+            </div>
+          </div>
+          <div class="dash-panel" style="margin-bottom:1.25rem;">
+            {% include '_task_table_body.html' ignore missing %}
+            {% include 'partials/task_rows.html' ignore missing %}
+            <div class="table-wrap">
+              <table class="gm-table">
+                <thead><tr><th>Task</th><th>Priority</th><th>Status</th><th>Due</th><th>Pts</th><th>Progress</th></tr></thead>
+                <tbody>
+                {% for t in sp_tasks %}
+                <tr class="task-row" data-tstatus="{{ t.status }}" id="myTask-{{ t.id }}">
+                  <td>
+                    <div class="task-title-cell {% if t.status == 'completed' %}done{% endif %}">{{ t.title }}</div>
+                    <div style="font-size:.76rem;color:var(--text-muted)">{{ t.section.project.name[:30] if t.section and t.section.project else '' }}</div>
+                  </td>
+                  <td><span class="priority-badge" style="--pc:{{ t.priority_color }}">{{ t.priority|title }}</span></td>
+                  <td>
+                    <select class="status-select" onchange="updateStatus({{ t.id }}, this)">
+                      {% for s in ['todo','in_progress','review','completed','blocked'] %}
+                      <option value="{{ s }}" {% if t.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td><span class="{% if t.is_overdue() %}text-danger-sm{% else %}text-muted-sm{% endif %}">
+                    {% if t.due_date %}{{ t.due_date.strftime('%d %b') }}{% else %}—{% endif %}
+                  </span></td>
+                  <td><span class="kc-pts">{{ t.story_points or '—' }}</span></td>
+                  <td>
+                    <div class="inline-progress">
+                      <div class="mini-prog-bar wide"><div style="width:{{ t.progress }}%;background:{{ t.status_color }}"></div></div>
+                      <span>{{ t.progress }}%</span>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- Tasks without sprint -->
+          {% set no_sprint = tasks | selectattr('sprint_label','eq','') | list + tasks | rejectattr('sprint_label') | list %}
+          {% if no_sprint %}
+          <div class="sprint-header">
+            <span class="sprint-badge" style="background:var(--bg-surface-3);color:var(--text-muted)">Backlog</span>
+            <span class="sprint-pts">{{ no_sprint|length }} tasks</span>
+          </div>
+          {% endif %}
+        {% endif %}
+
+        <!-- All tasks (no sprints) or backlog -->
+        {% set list_tasks = tasks if not sprints else (tasks | selectattr('sprint_label','eq','') | list) %}
+        {% if list_tasks or not sprints %}
+        <div class="dash-panel">
+          <div class="table-wrap">
+            <table class="gm-table" id="myTasksTable">
+              <thead>
+                <tr><th>Task</th><th>Project / Section</th><th>Priority</th><th>Status</th><th>Due Date</th><th>Pts</th><th>Progress</th></tr>
+              </thead>
+              <tbody>
+                {% set src = tasks if not sprints else list_tasks %}
+                {% for t in src %}
+                <tr class="task-row" data-tstatus="{{ t.status }}" id="myTask-{{ t.id }}">
+                  <td>
+                    <div class="task-title-cell {% if t.status == 'completed' %}done{% endif %}">{{ t.title }}</div>
+                    {% if t.notes %}<div class="task-notes-preview">{{ t.notes[:60] }}…</div>{% endif %}
+                  </td>
+                  <td>
+                    {% if t.section %}
+                    <div class="text-muted-sm">{{ t.section.project.name[:30] if t.section.project else '—' }}</div>
+                    <div style="font-size:.8rem;color:var(--text-muted)">{{ t.section.name[:30] }}</div>
+                    {% else %}—{% endif %}
+                  </td>
+                  <td><span class="priority-badge" style="--pc:{{ t.priority_color }}">{{ t.priority|title }}</span></td>
+                  <td>
+                    <select class="status-select" onchange="updateStatus({{ t.id }}, this)">
+                      {% for s in ['todo','in_progress','review','completed','blocked'] %}
+                      <option value="{{ s }}" {% if t.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    <span class="{% if t.is_overdue() %}text-danger-sm{% else %}text-muted-sm{% endif %}">
+                      {% if t.due_date %}
+                      {% if t.is_overdue() %}<i class="bi bi-exclamation-circle"></i> {% endif %}
+                      {{ t.due_date.strftime('%d %b %Y') }}
+                      {% else %}—{% endif %}
+                    </span>
+                  </td>
+                  <td><span class="kc-pts">{{ t.story_points or '—' }}</span></td>
+                  <td>
+                    <div class="inline-progress">
+                      <div class="mini-prog-bar wide"><div style="width:{{ t.progress }}%;background:{{ t.status_color }}"></div></div>
+                      <span>{{ t.progress }}%</span>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if not tasks %}
+        <div class="empty-page">
+          <div class="empty-icon"><i class="bi bi-check2-all"></i></div>
+          <h3>No tasks assigned</h3>
+          <p>Ask your project lead to assign you to tasks.</p>
+        </div>
+        {% endif %}
+      </div><!-- /viewList -->
+
+      <!-- ══ CALENDAR VIEW (ClickUp) ══ -->
+      <div id="viewCalendar">
+        <div class="dash-panel">
+          <div class="cal-header">
+            <button class="cal-nav-btn" onclick="calNav(-1)"><i class="bi bi-chevron-left"></i></button>
+            <span class="cal-month-title" id="calMonthTitle"></span>
+            <button class="cal-nav-btn" onclick="calNav(1)"><i class="bi bi-chevron-right"></i></button>
+          </div>
+          <div class="cal-grid" id="calDOW">
+            {% for d in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+            <div class="cal-dow">{{ d }}</div>
+            {% endfor %}
+          </div>
+          <div class="cal-grid" id="calCells" style="margin-top:.35rem;"></div>
+        </div>
+      </div><!-- /viewCalendar -->
+
+    </div><!-- /tasks-content -->
+
+    <!-- ── ACTIVITY SIDEBAR (Notion) ─── -->
+    <div class="activity-sidebar">
+      <div class="dash-panel" style="position:sticky; top:80px;">
+        <div class="panel-header" style="margin-bottom:.75rem;">
+          <h3 class="panel-title"><i class="bi bi-activity"></i> Activity</h3>
+          <button onclick="loadActivity()" class="panel-link" style="background:none;border:none;cursor:pointer;font-size:.78rem;">Refresh</button>
+        </div>
+        <div id="activityFeed">
+          <div style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:1rem 0">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tasks-main -->
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function updateMyTaskStatus(id, sel) {
-  const newStatus = sel.value;
-  const prog = newStatus === 'completed' ? 100 : newStatus === 'in_progress' ? 50 : 0;
-  fetch(`/tasks/${id}`, {
-    method: 'PUT', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({status: newStatus, progress: prog})
-  }).then(() => {
-    const row = document.getElementById('myTask-' + id);
-    if (row) row.dataset.tstatus = newStatus;
-    const titleEl = row ? row.querySelector('.task-title-cell') : null;
-    if (titleEl) titleEl.classList.toggle('done', newStatus === 'completed');
+const TASKS = {{ tasks_json | safe }};
+let draggedId = null;
+let calYear, calMonth;
+
+// ── VIEW SWITCHER ──────────────────────────────
+function switchView(v) {
+  ['Board','List','Calendar'].forEach(n => {
+    document.getElementById('view'+n).classList.toggle('active', n === v);
+    document.getElementById('btn'+n).classList.toggle('active', n === v);
   });
+  if (v === 'Calendar') renderCalendar();
 }
 
+// ── FILTER PILLS (List view) ──────────────────
 document.querySelectorAll('[data-tfilter]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('[data-tfilter]').forEach(b => b.classList.remove('active'));
@@ -141,5 +427,183 @@ document.querySelectorAll('[data-tfilter]').forEach(btn => {
     });
   });
 });
+
+// ── STATUS UPDATE ─────────────────────────────
+function updateStatus(id, sel) {
+  const s = sel.value;
+  const prog = s === 'completed' ? 100 : s === 'in_progress' ? 50 : 0;
+  fetch(`/tasks/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({status:s, progress:prog})
+  }).then(r => r.json()).then(() => {
+    const row = document.getElementById('myTask-'+id);
+    if (row) { row.dataset.tstatus = s; row.querySelector('.task-title-cell')?.classList.toggle('done', s==='completed'); }
+    const card = document.getElementById('kcard-'+id);
+    if (card) moveCardToColumn(card, id, s, prog);
+    loadActivity();
+  });
+}
+
+// ── DRAG AND DROP (Trello Kanban) ─────────────
+function dragStart(e, id) {
+  draggedId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => document.getElementById('kcard-'+id)?.classList.add('dragging'), 0);
+}
+function dragEnd(e) {
+  document.querySelectorAll('.kanban-card').forEach(c => c.classList.remove('dragging'));
+  document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+}
+function dropCard(e, newStatus) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedId) return;
+  const card = document.getElementById('kcard-'+draggedId);
+  if (!card || card.dataset.status === newStatus) return;
+  const prog = newStatus === 'completed' ? 100 : newStatus === 'in_progress' ? 50 : parseInt(card.querySelector('.kc-progress-fill')?.style.width) || 0;
+  fetch(`/tasks/${draggedId}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({status:newStatus, progress:prog})
+  }).then(r => r.json()).then(() => {
+    moveCardToColumn(card, draggedId, newStatus, prog);
+    loadActivity();
+  });
+  draggedId = null;
+}
+function moveCardToColumn(card, id, newStatus, prog) {
+  const oldStatus = card.dataset.status;
+  if (oldStatus === newStatus) return;
+  card.dataset.status = newStatus;
+  const col = document.getElementById('cards-'+newStatus);
+  if (col) col.appendChild(card);
+  // Update progress fill
+  const fill = card.querySelector('.kc-progress-fill');
+  if (fill) fill.style.width = prog + '%';
+  // Update title strikethrough
+  card.querySelector('.kc-title')?.classList.toggle('done', newStatus === 'completed');
+  // Update column counts
+  updateColCounts();
+  // Update KPIs
+  updateKPIs();
+}
+function updateColCounts() {
+  ['todo','in_progress','review','completed','blocked'].forEach(s => {
+    const cnt = document.getElementById('cnt-'+s);
+    const col = document.getElementById('cards-'+s);
+    if (cnt && col) cnt.textContent = col.querySelectorAll('.kanban-card').length;
+  });
+}
+function updateKPIs() {
+  const map = {todo:'kpiTodo', in_progress:'kpiInProgress', review:'kpiReview', completed:'kpiDone', blocked:'kpiBlocked'};
+  Object.entries(map).forEach(([s,elId]) => {
+    const el = document.getElementById(elId);
+    const col = document.getElementById('cards-'+s);
+    if (el && col) el.textContent = col.querySelectorAll('.kanban-card').length;
+  });
+}
+
+// ── QUICK ADD TASK (Trello) ───────────────────
+function quickAddTask(status) {
+  const title = prompt('Task title:');
+  if (!title || !title.trim()) return;
+  // Just show a message since we need section context
+  alert('To add a task, please use the project detail page and assign it to yourself. This creates a task in the correct section.');
+}
+
+// ── SPRINT FILTER ─────────────────────────────
+function filterSprint(sprint) {
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.style.display = (!sprint || card.dataset.sprint === sprint) ? '' : 'none';
+  });
+  document.querySelectorAll('.task-row').forEach(row => {
+    const task = TASKS.find(t => document.getElementById('myTask-'+t.id) === row);
+    if (!sprint) { row.style.display = ''; return; }
+    if (task) row.style.display = task.sprint_label === sprint ? '' : 'none';
+  });
+  updateColCounts();
+}
+
+// ── CALENDAR VIEW (ClickUp) ───────────────────
+function renderCalendar() {
+  const now = new Date();
+  if (!calYear) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthTitle').textContent = months[calMonth] + ' ' + calYear;
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay  = new Date(calYear, calMonth+1, 0);
+  let startDow = firstDay.getDay(); // 0=Sun
+  startDow = startDow === 0 ? 6 : startDow - 1; // Mon=0
+
+  // Build task map by date
+  const taskMap = {};
+  TASKS.forEach(t => {
+    if (!t.due_date) return;
+    const key = t.due_date; // YYYY-MM-DD
+    if (!taskMap[key]) taskMap[key] = [];
+    taskMap[key].push(t);
+  });
+
+  const cells = document.getElementById('calCells');
+  cells.innerHTML = '';
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Leading empty cells
+  for (let i = 0; i < startDow; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-cell other-month';
+    cells.appendChild(el);
+  }
+  // Days of month
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const cellDate = new Date(calYear, calMonth, d);
+    const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const el = document.createElement('div');
+    el.className = 'cal-cell' + (cellDate.getTime() === today.getTime() ? ' today' : '');
+    const num = document.createElement('div');
+    num.className = 'cal-day-num'; num.textContent = d;
+    el.appendChild(num);
+    const dayTasks = taskMap[key] || [];
+    dayTasks.slice(0,3).forEach(t => {
+      const dot = document.createElement('span');
+      dot.className = 'cal-task-dot';
+      dot.style.background = t.priority_color;
+      dot.title = t.title;
+      dot.textContent = t.title.length > 14 ? t.title.slice(0,13)+'…' : t.title;
+      el.appendChild(dot);
+    });
+    if (dayTasks.length > 3) {
+      const more = document.createElement('div');
+      more.className = 'cal-more'; more.textContent = '+' + (dayTasks.length-3) + ' more';
+      el.appendChild(more);
+    }
+    cells.appendChild(el);
+  }
+}
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+// ── ACTIVITY FEED (Notion) ────────────────────
+function loadActivity() {
+  fetch('/api/activity').then(r=>r.json()).then(logs => {
+    const feed = document.getElementById('activityFeed');
+    if (!logs.length) { feed.innerHTML = '<div style="color:var(--text-muted);font-size:.8rem;text-align:center;padding:1rem 0">No activity yet</div>'; return; }
+    feed.innerHTML = logs.slice(0,12).map(l => `
+      <div class="activity-item">
+        <div class="act-icon" style="background:${l.color}22; color:${l.color}">
+          <i class="bi ${l.icon}"></i>
+        </div>
+        <div class="act-body">
+          <div class="act-desc"><strong>${l.user}</strong> ${l.description}</div>
+          <div class="act-time">${l.ago}${l.project ? ' · '+l.project : ''}</div>
+        </div>
+      </div>`).join('');
+  }).catch(() => {});
+}
+loadActivity();
 </script>
 {% endblock %}

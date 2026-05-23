@@ -364,6 +364,7 @@ body::before {
 .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
 .kpi-grid-3 { grid-template-columns: repeat(3, 1fr); }
 .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.kpi-grid-5 { grid-template-columns: repeat(5, 1fr); }
 .kpi-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -419,6 +420,7 @@ body::before {
   text-decoration: none; transition: var(--transition);
 }
 .project-mini-card:hover { border-color: var(--primary); background: var(--bg-surface-3); }
+.pmc-ring-wrap { flex-shrink: 0; margin-right: .35rem; }
 .pmc-left { display: flex; align-items: center; gap: .75rem; flex: 1; min-width: 0; }
 .pmc-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .pmc-name { font-size: .875rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }

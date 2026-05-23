@@ -210,6 +210,8 @@ class Task(db.Model):
     status = db.Column(db.String(20), default='todo')
     priority = db.Column(db.String(10), default='medium')
     progress = db.Column(db.Integer, default=0)
+    story_points = db.Column(db.Integer, default=0)
+    sprint_label = db.Column(db.String(50), default='')
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     assigned_to = db.relationship('User', foreign_keys=[assigned_to_id])
@@ -270,6 +272,20 @@ class SectionAssignment(db.Model):
     user = db.relationship('User')
 
 
+class ActivityLog(db.Model):
+    __tablename__ = 'activity_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=True)
+    action = db.Column(db.String(40))  # task_done, task_created, project_created, status_changed, etc.
+    description = db.Column(db.String(300))
+    icon = db.Column(db.String(40), default='bi-activity')
+    color = db.Column(db.String(20), default='#10b981')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User')
+    project = db.relationship('Project')
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -295,6 +311,17 @@ def not_client(f):
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated
+
+
+def log_act(action, description, project_id=None, icon='bi-activity', color='#10b981'):
+    """Append an activity log entry to the current session (caller must commit)."""
+    try:
+        db.session.add(ActivityLog(
+            user_id=current_user.id, project_id=project_id,
+            action=action, description=description, icon=icon, color=color
+        ))
+    except Exception:
+        pass
 
 
 # ─── ROUTES ──────────────────────────────────────────────────────────────────
@@ -498,6 +525,7 @@ def create_project():
         db.session.add(project)
         db.session.flush()
         db.session.add(TOR(project_id=project.id))
+        log_act('project_created', f'Created project "{project.name[:60]}"', project.id, 'bi-folder-plus', '#8b5cf6')
         db.session.commit()
         flash(f'Project <strong>{project.name}</strong> created!', 'success')
         return redirect(url_for('project_detail', project_id=project.id))
@@ -739,6 +767,9 @@ def add_task(section_id):
         notes=data.get('notes', '')
     )
     db.session.add(task)
+    db.session.flush()
+    proj_id = task.section.project_id if task.section else None
+    log_act('task_created', f'Created task "{task.title[:60]}"', proj_id, 'bi-plus-circle', '#6366f1')
     db.session.commit()
     assigned_name = task.assigned_to.name if task.assigned_to else 'Unassigned'
     return jsonify({'success': True, 'id': task.id, 'title': task.title,
@@ -753,15 +784,26 @@ def update_task(task_id):
     if current_user.role == 'developer' and task.assigned_to_id != current_user.id:
         return jsonify({'error': 'Not authorized'}), 403
     data = request.get_json() or {}
-    for field in ['title', 'description', 'status', 'priority', 'notes']:
+    old_status = task.status
+    for field in ['title', 'description', 'status', 'priority', 'notes', 'sprint_label']:
         if field in data:
             setattr(task, field, data[field])
+    if 'story_points' in data:
+        task.story_points = int(data['story_points'] or 0)
     if 'progress' in data:
         task.progress = min(100, max(0, int(data['progress'])))
     if 'assigned_to_id' in data:
         task.assigned_to_id = data['assigned_to_id'] or None
     if data.get('due_date'):
         task.due_date = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
+    # Activity logging
+    proj_id = task.section.project_id if task.section else None
+    new_status = data.get('status', old_status)
+    if new_status == 'completed' and old_status != 'completed':
+        log_act('task_done', f'Completed task "{task.title[:60]}"', proj_id, 'bi-check-circle-fill', '#10b981')
+    elif new_status != old_status:
+        label = new_status.replace('_', ' ').title()
+        log_act('status_changed', f'Moved "{task.title[:55]}" → {label}', proj_id, 'bi-arrow-left-right', '#3b82f6')
     db.session.commit()
     return jsonify({'success': True})
 
@@ -934,7 +976,61 @@ def my_tasks():
     if current_user.role == 'client':
         return redirect(url_for('dashboard'))
     tasks = Task.query.filter_by(assigned_to_id=current_user.id).order_by(Task.due_date).all()
-    return render_template('my_tasks.html', tasks=tasks, today=date.today())
+    import json as _json
+    tasks_json = _json.dumps([{
+        'id': t.id,
+        'title': t.title,
+        'status': t.status,
+        'priority': t.priority,
+        'priority_color': t.priority_color,
+        'status_color': t.status_color,
+        'progress': t.progress,
+        'story_points': t.story_points or 0,
+        'sprint_label': t.sprint_label or '',
+        'due_date': t.due_date.strftime('%Y-%m-%d') if t.due_date else None,
+        'due_fmt': t.due_date.strftime('%d %b') if t.due_date else None,
+        'overdue': t.is_overdue(),
+        'notes': (t.notes or '')[:80],
+        'project': t.section.project.name[:35] if t.section and t.section.project else '',
+        'section': t.section.name[:30] if t.section else '',
+        'section_color': t.section.type_color if t.section else '#6b7280',
+    } for t in tasks])
+    sprints = sorted(set(t.sprint_label for t in tasks if t.sprint_label))
+    return render_template('my_tasks.html', tasks=tasks, today=date.today(),
+                           tasks_json=tasks_json, sprints=sprints)
+
+
+# Activity feed API
+@app.route('/api/activity')
+@login_required
+def api_activity():
+    if current_user.role == 'super_admin':
+        logs = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(30).all()
+    else:
+        logs = ActivityLog.query.filter_by(user_id=current_user.id).order_by(
+            ActivityLog.created_at.desc()).limit(20).all()
+    return jsonify([{
+        'id': l.id,
+        'action': l.action,
+        'description': l.description,
+        'icon': l.icon,
+        'color': l.color,
+        'user': l.user.name if l.user else '?',
+        'initials': l.user.get_initials() if l.user else '?',
+        'avatar_color': l.user.avatar_color if l.user else '#10b981',
+        'project': l.project.name[:40] if l.project else None,
+        'ts': l.created_at.strftime('%d %b, %H:%M'),
+        'ago': _time_ago(l.created_at)
+    } for l in logs])
+
+
+def _time_ago(dt):
+    diff = datetime.utcnow() - dt
+    s = int(diff.total_seconds())
+    if s < 60: return 'just now'
+    if s < 3600: return f'{s // 60}m ago'
+    if s < 86400: return f'{s // 3600}h ago'
+    return f'{s // 86400}d ago'
 
 
 # API
