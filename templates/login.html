@@ -399,20 +399,33 @@
           <div class="divider">Demo Accounts</div>
           <div class="demo-accounts">
             <div class="demo-title">Click to auto-fill credentials</div>
-            <div class="demo-row">
-              <span class="demo-role"><i class="bi bi-shield-fill-check" style="color:#6366f1"></i> Super Admin</span>
+            <!-- Admin suggestion -->
+            <div class="demo-row demo-suggestion" data-for="admin">
+              <span class="demo-role"><i class="bi bi-shield-fill-check" style="color:#ef4444"></i> Administrator</span>
               <span class="demo-creds">admin@geospatialmaven.com</span>
               <button class="demo-fill-btn" onclick="fillCreds('admin@geospatialmaven.com','admin123')">Fill</button>
             </div>
-            <div class="demo-row">
-              <span class="demo-role"><i class="bi bi-code-slash" style="color:#10b981"></i> Developer</span>
+            <!-- Developer suggestions -->
+            <div class="demo-row demo-suggestion" data-for="developer">
+              <span class="demo-role"><i class="bi bi-code-slash" style="color:#6366f1"></i> Developer (Sarah)</span>
               <span class="demo-creds">sarah@geospatialmaven.com</span>
               <button class="demo-fill-btn" onclick="fillCreds('sarah@geospatialmaven.com','dev123')">Fill</button>
             </div>
-            <div class="demo-row">
-              <span class="demo-role"><i class="bi bi-person-fill" style="color:#f59e0b"></i> Client</span>
+            <div class="demo-row demo-suggestion" data-for="developer">
+              <span class="demo-role"><i class="bi bi-code-slash" style="color:#6366f1"></i> Developer (Usman)</span>
+              <span class="demo-creds">usman@geospatialmaven.com</span>
+              <button class="demo-fill-btn" onclick="fillCreds('usman@geospatialmaven.com','dev123')">Fill</button>
+            </div>
+            <!-- Client suggestions -->
+            <div class="demo-row demo-suggestion" data-for="client">
+              <span class="demo-role"><i class="bi bi-briefcase-fill" style="color:#f59e0b"></i> Client (UNDP)</span>
               <span class="demo-creds">client@undp.org</span>
               <button class="demo-fill-btn" onclick="fillCreds('client@undp.org','client123')">Fill</button>
+            </div>
+            <div class="demo-row demo-suggestion" data-for="client">
+              <span class="demo-role"><i class="bi bi-briefcase-fill" style="color:#f59e0b"></i> Client (WWF)</span>
+              <span class="demo-creds">projects@wwf.org</span>
+              <button class="demo-fill-btn" onclick="fillCreds('projects@wwf.org','client123')">Fill</button>
             </div>
           </div>
         </div><!-- /panelSignIn -->
@@ -565,6 +578,11 @@
     // Update sign-in heading
     document.getElementById('loginTitle').textContent = meta.title;
     document.getElementById('loginSub').textContent = meta.sub;
+    // Filter demo suggestions to match selected role
+    var mapRole = role === 'admin' ? 'admin' : role === 'client' ? 'client' : 'developer';
+    document.querySelectorAll('.demo-suggestion').forEach(function(row) {
+      row.style.display = row.dataset.for === mapRole ? '' : 'none';
+    });
     // Transition
     document.getElementById('stepRole').classList.remove('active');
     document.getElementById('stepForm').classList.add('active');
