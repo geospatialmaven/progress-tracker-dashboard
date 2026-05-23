@@ -272,6 +272,86 @@ class SectionAssignment(db.Model):
     user = db.relationship('User')
 
 
+class Deliverable(db.Model):
+    __tablename__ = 'deliverables'
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
+    section_id = db.Column(db.Integer, db.ForeignKey('sections.id'), nullable=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, default='')
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    assigned_qa_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    # Stages: draft | qa_review | admin_review | client_review | completed | revision
+    stage = db.Column(db.String(30), default='draft')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    project = db.relationship('Project')
+    section = db.relationship('Section')
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
+    assigned_qa = db.relationship('User', foreign_keys=[assigned_qa_id])
+    events = db.relationship('DeliverableEvent', backref='deliverable', lazy=True,
+                             cascade='all, delete-orphan', order_by='DeliverableEvent.created_at')
+    comments = db.relationship('DeliverableComment', backref='deliverable', lazy=True,
+                               cascade='all, delete-orphan', order_by='DeliverableComment.created_at')
+
+    @property
+    def stage_color(self):
+        return {'draft':'#6b7280','qa_review':'#3b82f6','admin_review':'#6366f1',
+                'client_review':'#f59e0b','completed':'#10b981','revision':'#ef4444'}.get(self.stage,'#6b7280')
+
+    @property
+    def stage_label(self):
+        return {'draft':'Draft','qa_review':'In QA Review','admin_review':'Admin Review',
+                'client_review':'Client Review','completed':'Completed','revision':'Needs Revision'}.get(self.stage, self.stage)
+
+    def open_comments(self):
+        return [c for c in self.comments if c.status != 'closed' and c.parent_id is None]
+
+    def client_visible_comments(self):
+        return [c for c in self.comments if c.is_client_visible or c.author.role == 'client']
+
+
+class DeliverableEvent(db.Model):
+    __tablename__ = 'deliverable_events'
+    id = db.Column(db.Integer, primary_key=True)
+    deliverable_id = db.Column(db.Integer, db.ForeignKey('deliverables.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    event_type = db.Column(db.String(40))
+    stage_from = db.Column(db.String(30), default='')
+    stage_to = db.Column(db.String(30), default='')
+    note = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User')
+
+
+class DeliverableComment(db.Model):
+    __tablename__ = 'deliverable_comments'
+    id = db.Column(db.Integer, primary_key=True)
+    deliverable_id = db.Column(db.Integer, db.ForeignKey('deliverables.id'))
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    content = db.Column(db.Text, nullable=False)
+    is_client_visible = db.Column(db.Boolean, default=False)
+    # open | dev_resolved | qa_resolved | closed
+    status = db.Column(db.String(20), default='open')
+    resolved_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    resolved_at = db.Column(db.DateTime)
+    parent_id = db.Column(db.Integer, db.ForeignKey('deliverable_comments.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    author = db.relationship('User', foreign_keys=[author_id])
+    resolved_by = db.relationship('User', foreign_keys=[resolved_by_id])
+    replies = db.relationship('DeliverableComment', foreign_keys=[parent_id], lazy=True)
+
+    @property
+    def status_label(self):
+        return {'open':'Open','dev_resolved':'Dev Resolved (Awaiting QA)',
+                'qa_resolved':'QA Verified (Awaiting Admin)','closed':'Closed'}.get(self.status, self.status)
+
+    @property
+    def status_color(self):
+        return {'open':'#ef4444','dev_resolved':'#f59e0b','qa_resolved':'#3b82f6','closed':'#10b981'}.get(self.status,'#6b7280')
+
+
 class TaskAssignmentRequest(db.Model):
     __tablename__ = 'task_assignment_requests'
     id = db.Column(db.Integer, primary_key=True)
@@ -1026,6 +1106,273 @@ def my_tasks():
     sprints = sorted(set(t.sprint_label for t in tasks if t.sprint_label))
     return render_template('my_tasks.html', tasks=tasks, today=date.today(),
                            tasks_json=tasks_json, sprints=sprints)
+
+
+# ── DELIVERABLE REVIEW PIPELINE ──────────────────────────────────────────────
+
+STAGE_ORDER = ['draft','qa_review','admin_review','client_review','completed']
+
+def _add_event(deliverable, event_type, stage_from, stage_to, note=''):
+    db.session.add(DeliverableEvent(
+        deliverable_id=deliverable.id, user_id=current_user.id,
+        event_type=event_type, stage_from=stage_from, stage_to=stage_to, note=note
+    ))
+    deliverable.stage = stage_to
+    deliverable.updated_at = datetime.utcnow()
+
+
+@app.route('/projects/<int:project_id>/progress')
+@login_required
+def project_progress(project_id):
+    project = Project.query.get_or_404(project_id)
+    # Access control
+    if current_user.role == 'client' and project.client_user_id != current_user.id:
+        abort(403)
+    deliverables = Deliverable.query.filter_by(project_id=project_id).order_by(
+        Deliverable.updated_at.desc()).all()
+    sections = Section.query.filter_by(project_id=project_id).all()
+    all_users = User.query.filter(User.is_active==True).all()
+    qa_users = User.query.filter(User.role.in_(['super_admin','developer']), User.is_active==True).all()
+    return render_template('projects/progress.html', project=project,
+                           deliverables=deliverables, sections=sections,
+                           all_users=all_users, qa_users=qa_users)
+
+
+@app.route('/projects/<int:project_id>/progress', methods=['POST'])
+@login_required
+@not_client
+def create_deliverable(project_id):
+    data = request.get_json() or {}
+    d = Deliverable(
+        project_id=project_id,
+        section_id=data.get('section_id') or None,
+        title=data.get('title','').strip(),
+        description=data.get('description',''),
+        created_by_id=current_user.id,
+        assigned_qa_id=data.get('assigned_qa_id') or None,
+        stage='draft'
+    )
+    db.session.add(d)
+    db.session.flush()
+    db.session.add(DeliverableEvent(deliverable_id=d.id, user_id=current_user.id,
+        event_type='created', stage_from='', stage_to='draft', note='Deliverable created'))
+    log_act('deliverable_created', f'Created deliverable "{d.title[:50]}"', project_id, 'bi-file-earmark-plus', '#8b5cf6')
+    db.session.commit()
+    return jsonify({'success':True, 'id':d.id, 'title':d.title})
+
+
+@app.route('/deliverables/<int:d_id>')
+@login_required
+def deliverable_detail(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    project = d.project
+    if current_user.role == 'client':
+        if project.client_user_id != current_user.id:
+            abort(403)
+        # Client sees only client-visible comments
+        visible_comments = d.client_visible_comments()
+    else:
+        visible_comments = [c for c in d.comments if c.parent_id is None]
+    all_users = User.query.filter(User.is_active==True).all()
+    qa_users = User.query.filter(User.role.in_(['super_admin','developer']), User.is_active==True).all()
+    return render_template('projects/deliverable_detail.html', d=d, project=project,
+                           visible_comments=visible_comments, all_users=all_users, qa_users=qa_users)
+
+
+def _check_deliverable_access(d):
+    """Return (allowed, error_msg) based on current_user role vs stage."""
+    stage = d.stage
+    role = current_user.role
+    if role == 'client' and d.project.client_user_id != current_user.id:
+        return False, 'Access denied.'
+    return True, None
+
+
+@app.route('/deliverables/<int:d_id>/submit', methods=['POST'])
+@login_required
+@not_client
+def deliverable_submit(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    note = request.get_json(silent=True) or {}
+    note = note.get('note','')
+    old = d.stage
+    new = 'qa_review'
+    _add_event(d, 'submitted', old, new, note or 'Submitted for QA review')
+    log_act('deliverable_submitted', f'Submitted "{d.title[:50]}" for QA review', d.project_id, 'bi-send', '#3b82f6')
+    db.session.commit()
+    flash(f'"{d.title}" submitted to QA Review.', 'success')
+    return redirect(url_for('deliverable_detail', d_id=d_id))
+
+
+@app.route('/deliverables/<int:d_id>/qa-approve', methods=['POST'])
+@login_required
+def deliverable_qa_approve(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    note = (request.form.get('note','') or '').strip()
+    old = d.stage
+    _add_event(d, 'qa_approved', old, 'admin_review', note or 'QA approved. Forwarded to Admin/CTO.')
+    log_act('qa_approved', f'QA approved "{d.title[:50]}"', d.project_id, 'bi-patch-check-fill', '#6366f1')
+    db.session.commit()
+    flash(f'QA approved. Sent to Admin for review.', 'success')
+    return redirect(url_for('deliverable_detail', d_id=d_id))
+
+
+@app.route('/deliverables/<int:d_id>/qa-sendback', methods=['POST'])
+@login_required
+def deliverable_qa_sendback(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    note = (request.form.get('note','') or '').strip()
+    if not note:
+        flash('Please provide a reason for sending back.', 'danger')
+        return redirect(url_for('deliverable_detail', d_id=d_id))
+    _add_event(d, 'qa_rejected', d.stage, 'revision', note)
+    # Add a visible comment
+    db.session.add(DeliverableComment(deliverable_id=d.id, author_id=current_user.id,
+        content=f'[QA Feedback] {note}', is_client_visible=False, status='open'))
+    log_act('qa_rejected', f'QA sent back "{d.title[:50]}" for revision', d.project_id, 'bi-arrow-counterclockwise', '#ef4444')
+    db.session.commit()
+    flash('Sent back to developer for revision.', 'info')
+    return redirect(url_for('deliverable_detail', d_id=d_id))
+
+
+@app.route('/deliverables/<int:d_id>/admin-send-client', methods=['POST'])
+@login_required
+@admin_required
+def deliverable_admin_send_client(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    note = (request.form.get('note','') or '').strip()
+    # Mark selected comments as client-visible
+    visible_ids = request.form.getlist('visible_comment_ids')
+    for cid in visible_ids:
+        c = DeliverableComment.query.get(int(cid))
+        if c and c.deliverable_id == d.id:
+            c.is_client_visible = True
+    _add_event(d, 'admin_approved', d.stage, 'client_review', note or 'Admin approved. Sent to client for review.')
+    log_act('admin_approved', f'Admin approved "{d.title[:50]}" → sent to client', d.project_id, 'bi-shield-fill-check', '#10b981')
+    db.session.commit()
+    flash('Approved and sent to client for review.', 'success')
+    return redirect(url_for('deliverable_detail', d_id=d_id))
+
+
+@app.route('/deliverables/<int:d_id>/admin-sendback', methods=['POST'])
+@login_required
+@admin_required
+def deliverable_admin_sendback(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    target = request.form.get('target','qa_review')  # qa_review or revision
+    note = (request.form.get('note','') or '').strip()
+    if not note:
+        flash('Please provide feedback.', 'danger')
+        return redirect(url_for('deliverable_detail', d_id=d_id))
+    label = 'QA team' if target == 'qa_review' else 'developer'
+    _add_event(d, 'admin_rejected', d.stage, target, note)
+    db.session.add(DeliverableComment(deliverable_id=d.id, author_id=current_user.id,
+        content=f'[Admin Feedback → {label}] {note}', is_client_visible=False, status='open'))
+    log_act('admin_sendback', f'Admin sent back "{d.title[:50]}" to {label}', d.project_id, 'bi-arrow-counterclockwise', '#f59e0b')
+    db.session.commit()
+    flash(f'Sent back to {label} with feedback.', 'info')
+    return redirect(url_for('deliverable_detail', d_id=d_id))
+
+
+@app.route('/deliverables/<int:d_id>/client-approve', methods=['POST'])
+@login_required
+def deliverable_client_approve(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    if current_user.role == 'client' and d.project.client_user_id != current_user.id:
+        abort(403)
+    note = (request.form.get('note','') or '').strip()
+    _add_event(d, 'client_approved', d.stage, 'completed', note or 'Client approved. Deliverable completed.')
+    log_act('client_approved', f'Client approved "{d.title[:50]}" — COMPLETED', d.project_id, 'bi-check-circle-fill', '#10b981')
+    db.session.commit()
+    flash('Deliverable approved and marked as completed!', 'success')
+    return redirect(url_for('deliverable_detail', d_id=d_id))
+
+
+@app.route('/deliverables/<int:d_id>/client-sendback', methods=['POST'])
+@login_required
+def deliverable_client_sendback(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    if current_user.role == 'client' and d.project.client_user_id != current_user.id:
+        abort(403)
+    note = (request.form.get('note','') or '').strip()
+    if not note:
+        flash('Please provide feedback before sending back.', 'danger')
+        return redirect(url_for('deliverable_detail', d_id=d_id))
+    _add_event(d, 'client_sendback', d.stage, 'admin_review', note)
+    db.session.add(DeliverableComment(deliverable_id=d.id, author_id=current_user.id,
+        content=note, is_client_visible=True, status='open'))
+    log_act('client_sendback', f'Client sent back "{d.title[:50]}" for revision', d.project_id, 'bi-arrow-counterclockwise', '#f59e0b')
+    db.session.commit()
+    flash('Feedback submitted. Returned to admin for review.', 'info')
+    return redirect(url_for('deliverable_detail', d_id=d_id))
+
+
+# Comments
+@app.route('/deliverables/<int:d_id>/comments', methods=['POST'])
+@login_required
+def add_deliverable_comment(d_id):
+    d = Deliverable.query.get_or_404(d_id)
+    if current_user.role == 'client' and d.project.client_user_id != current_user.id:
+        abort(403)
+    data = request.get_json() or {}
+    content = (data.get('content','') or '').strip()
+    if not content:
+        return jsonify({'error':'Empty comment'}), 400
+    is_client_visible = (current_user.role == 'client') or bool(data.get('is_client_visible'))
+    c = DeliverableComment(
+        deliverable_id=d_id, author_id=current_user.id,
+        content=content, is_client_visible=is_client_visible,
+        parent_id=data.get('parent_id') or None
+    )
+    db.session.add(c)
+    db.session.flush()
+    db.session.add(DeliverableEvent(deliverable_id=d_id, user_id=current_user.id,
+        event_type='comment_added', stage_from=d.stage, stage_to=d.stage,
+        note=content[:100]))
+    db.session.commit()
+    return jsonify({'success':True, 'id':c.id,
+                    'author': current_user.name, 'initials': current_user.get_initials(),
+                    'avatar_color': current_user.avatar_color,
+                    'content': c.content, 'ts': c.created_at.strftime('%d %b, %H:%M'),
+                    'is_client_visible': c.is_client_visible})
+
+
+@app.route('/deliverable-comments/<int:c_id>/resolve', methods=['POST'])
+@login_required
+def resolve_comment(c_id):
+    c = DeliverableComment.query.get_or_404(c_id)
+    role = current_user.role
+    data = request.get_json() or {}
+    old_status = c.status
+    if role in ('developer',) and c.status == 'open':
+        c.status = 'dev_resolved'
+        label = 'Marked as resolved by developer — awaiting QA verification'
+    elif (role in ('super_admin','developer') and c.status == 'dev_resolved'):
+        # QA verifies
+        c.status = 'qa_resolved'
+        label = 'QA verified resolution — awaiting admin review'
+    elif role == 'super_admin' and c.status in ('qa_resolved','dev_resolved','open'):
+        c.status = 'closed'
+        label = 'Closed by admin'
+    else:
+        return jsonify({'error':'Cannot resolve at this stage'}), 400
+    c.resolved_by_id = current_user.id
+    c.resolved_at = datetime.utcnow()
+    db.session.add(DeliverableEvent(deliverable_id=c.deliverable_id, user_id=current_user.id,
+        event_type='comment_resolved', stage_from=old_status, stage_to=c.status, note=label))
+    db.session.commit()
+    return jsonify({'success':True, 'new_status': c.status,
+                    'status_label': c.status_label, 'status_color': c.status_color, 'label': label})
+
+
+@app.route('/deliverable-comments/<int:c_id>/toggle-visible', methods=['POST'])
+@login_required
+@admin_required
+def toggle_comment_visibility(c_id):
+    c = DeliverableComment.query.get_or_404(c_id)
+    c.is_client_visible = not c.is_client_visible
+    db.session.commit()
+    return jsonify({'success':True, 'is_client_visible': c.is_client_visible})
 
 
 # ── TASK FORWARDING & APPROVALS ──────────────────────────────────────────────

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Progress Review — {{ project.name[:40] }}{% endblock %}
+{% block page_title %}Progress Review{% endblock %}
+
+{% block head %}
+<style>
+.stage-pipeline {
+  display:flex; align-items:center; gap:0; margin-bottom:1.5rem;
+  background:var(--bg-surface-2); border-radius:12px; padding:.5rem; overflow-x:auto;
+}
+.stage-step {
+  flex:1; min-width:100px; text-align:center; padding:.5rem .4rem;
+  border-radius:8px; font-size:.75rem; font-weight:700; color:var(--text-muted);
+  position:relative;
+}
+.stage-step.active-stage { background:var(--primary-glow); color:var(--primary); }
+.stage-arrow { color:var(--text-muted); font-size:.85rem; flex-shrink:0; }
+
+.dlv-card {
+  background:var(--bg-surface); border:1px solid var(--border); border-radius:12px;
+  padding:1rem 1.2rem; margin-bottom:.8rem; transition:var(--transition); cursor:pointer;
+  display:flex; align-items:center; gap:1rem; text-decoration:none;
+}
+.dlv-card:hover { border-color:var(--primary); transform:translateX(3px); text-decoration:none; }
+.dlv-stage-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.dlv-body { flex:1; min-width:0; }
+.dlv-title { font-size:.93rem; font-weight:700; color:var(--text-primary); margin-bottom:.25rem; }
+.dlv-meta { font-size:.78rem; color:var(--text-secondary); display:flex; flex-wrap:wrap; gap:.6rem; }
+.dlv-stage-pill { font-size:.74rem; font-weight:700; padding:2px 9px; border-radius:10px; }
+.dlv-actions { display:flex; gap:.5rem; align-items:center; flex-shrink:0; }
+.open-comments-badge { background:rgba(239,68,68,.15); color:#ef4444; font-size:.72rem; font-weight:700; padding:2px 7px; border-radius:8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+
+  <!-- Breadcrumb -->
+  <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:1rem; font-size:.85rem; color:var(--text-muted);">
+    <a href="{{ url_for('project_detail', project_id=project.id) }}" style="color:var(--primary)">
+      <i class="bi bi-arrow-left"></i> {{ project.name[:50] }}
+    </a>
+    <span>/ Progress Review</span>
+  </div>
+
+  <div class="page-header">
+    <div>
+      <h2 class="page-h2">Progress Review</h2>
+      <p class="page-sub">Track deliverables through QA → Admin → Client pipeline</p>
+    </div>
+    {% if current_user.role != 'client' %}
+    <button class="btn-primary-glow" onclick="document.getElementById('newDlvModal').style.display='flex'">
+      <i class="bi bi-plus-lg"></i> New Deliverable
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Pipeline visual -->
+  <div class="stage-pipeline">
+    {% set stages = [('draft','Draft','#6b7280'),('qa_review','QA Review','#3b82f6'),
+                     ('admin_review','Admin Review','#6366f1'),('client_review','Client Review','#f59e0b'),
+                     ('completed','Completed','#10b981')] %}
+    {% for s, lbl, col in stages %}
+    {% set cnt = deliverables|selectattr('stage','eq',s)|list|length %}
+    <div class="stage-step {% if cnt > 0 %}active-stage{% endif %}" style="{% if cnt > 0 %}--primary:{{ col }}; border:1px solid {{ col }}{% endif %}">
+      <div style="font-size:1.1rem; margin-bottom:2px;">
+        {% if s == 'draft' %}<i class="bi bi-file-earmark"></i>
+        {% elif s == 'qa_review' %}<i class="bi bi-search"></i>
+        {% elif s == 'admin_review' %}<i class="bi bi-shield-check"></i>
+        {% elif s == 'client_review' %}<i class="bi bi-person-check"></i>
+        {% else %}<i class="bi bi-check-circle-fill"></i>{% endif %}
+      </div>
+      {{ lbl }}
+      {% if cnt %}<div style="font-size:1rem;font-weight:800;color:{{ col }}">{{ cnt }}</div>{% endif %}
+    </div>
+    {% if not loop.last %}<div class="stage-arrow"><i class="bi bi-chevron-right"></i></div>{% endif %}
+    {% endfor %}
+    <!-- revision -->
+    {% set rev_cnt = deliverables|selectattr('stage','eq','revision')|list|length %}
+    {% if rev_cnt %}
+    <div class="stage-arrow" style="color:#ef4444"><i class="bi bi-arrow-counterclockwise"></i></div>
+    <div class="stage-step active-stage" style="--primary:#ef4444;border:1px solid #ef4444">
+      <i class="bi bi-exclamation-triangle" style="font-size:1.1rem"></i><br>Revision<br>
+      <span style="font-size:1rem;font-weight:800;color:#ef4444">{{ rev_cnt }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Deliverables list grouped by stage -->
+  {% set stage_groups = [
+    ('draft','Draft','#6b7280','bi-file-earmark'),
+    ('revision','Needs Revision','#ef4444','bi-exclamation-triangle'),
+    ('qa_review','In QA Review','#3b82f6','bi-search'),
+    ('admin_review','Admin / CTO Review','#6366f1','bi-shield-check'),
+    ('client_review','Client Review','#f59e0b','bi-person-check'),
+    ('completed','Completed','#10b981','bi-check-circle-fill'),
+  ] %}
+
+  {% for stage, label, color, icon in stage_groups %}
+  {% set grp = deliverables|selectattr('stage','eq',stage)|list %}
+  {% if grp %}
+  <div style="margin-bottom:1.5rem;">
+    <div style="display:flex; align-items:center; gap:.6rem; margin-bottom:.6rem;">
+      <i class="bi {{ icon }}" style="color:{{ color }}; font-size:1rem;"></i>
+      <span style="font-size:.85rem; font-weight:700; color:{{ color }}; text-transform:uppercase; letter-spacing:.5px;">{{ label }}</span>
+      <span style="font-size:.78rem; color:var(--text-muted); background:var(--bg-surface-2); padding:1px 7px; border-radius:8px;">{{ grp|length }}</span>
+    </div>
+    {% for d in grp %}
+    {% set open_cnt = d.open_comments()|length %}
+    <a href="{{ url_for('deliverable_detail', d_id=d.id) }}" class="dlv-card">
+      <div class="dlv-stage-dot" style="background:{{ color }}"></div>
+      <div class="dlv-body">
+        <div class="dlv-title">{{ d.title }}</div>
+        <div class="dlv-meta">
+          <span><i class="bi bi-person"></i> {{ d.created_by.name if d.created_by else '—' }}</span>
+          {% if d.section %}<span><i class="bi bi-layers"></i> {{ d.section.name[:30] }}</span>{% endif %}
+          <span><i class="bi bi-clock"></i> {{ d.updated_at.strftime('%d %b %Y') }}</span>
+          <span><i class="bi bi-chat"></i> {{ d.comments|length }} comment{% if d.comments|length != 1 %}s{% endif %}</span>
+          {% if d.events|length %}<span><i class="bi bi-activity"></i> {{ d.events|length }} events</span>{% endif %}
+        </div>
+      </div>
+      <div class="dlv-actions">
+        {% if open_cnt %}
+        <span class="open-comments-badge"><i class="bi bi-chat-dots"></i> {{ open_cnt }} open</span>
+        {% endif %}
+        <span class="dlv-stage-pill" style="background:{{ color }}22; color:{{ color }}">{{ label }}</span>
+        <i class="bi bi-chevron-right" style="color:var(--text-muted)"></i>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% if not deliverables %}
+  <div class="empty-page">
+    <div class="empty-icon"><i class="bi bi-layers-half"></i></div>
+    <h3>No deliverables yet</h3>
+    <p>Create a deliverable to start the QA → Admin → Client review pipeline.</p>
+    {% if current_user.role != 'client' %}
+    <button class="btn-primary-glow" onclick="document.getElementById('newDlvModal').style.display='flex'">
+      <i class="bi bi-plus-lg"></i> Create First Deliverable
+    </button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ── NEW DELIVERABLE MODAL ── -->
+{% if current_user.role != 'client' %}
+<div id="newDlvModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.5); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:1.75rem; width:100%; max-width:480px; box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0;">
+        <i class="bi bi-layers-half" style="color:#8b5cf6"></i> New Deliverable
+      </h3>
+      <button onclick="document.getElementById('newDlvModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div style="margin-bottom:.85rem;">
+      <label style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--text-muted);display:block;margin-bottom:.4rem;">Title *</label>
+      <input type="text" id="dlvTitle" placeholder="e.g. Flood Extent Maps – Final Version" style="width:100%;padding:.65rem .9rem;background:var(--bg-surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:.9rem;font-family:'Inter',sans-serif;">
+    </div>
+    <div style="margin-bottom:.85rem;">
+      <label style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--text-muted);display:block;margin-bottom:.4rem;">Description</label>
+      <textarea id="dlvDesc" rows="3" placeholder="What does this deliverable include?" style="width:100%;padding:.65rem .9rem;background:var(--bg-surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:.9rem;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
+    </div>
+    <div style="margin-bottom:.85rem;">
+      <label style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--text-muted);display:block;margin-bottom:.4rem;">Section (optional)</label>
+      <select id="dlvSection" style="width:100%;padding:.65rem .9rem;background:var(--bg-surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:.9rem;font-family:'Inter',sans-serif;">
+        <option value="">— No section —</option>
+        {% for s in sections %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div style="margin-bottom:1.1rem;">
+      <label style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--text-muted);display:block;margin-bottom:.4rem;">Assign QA Reviewer</label>
+      <select id="dlvQA" style="width:100%;padding:.65rem .9rem;background:var(--bg-surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:.9rem;font-family:'Inter',sans-serif;">
+        <option value="">— Select QA —</option>
+        {% for u in qa_users %}<option value="{{ u.id }}">{{ u.name }} ({{ u.role_label }})</option>{% endfor %}
+      </select>
+    </div>
+    <div style="display:flex; gap:.6rem; justify-content:flex-end;">
+      <button onclick="document.getElementById('newDlvModal').style.display='none'" style="padding:.55rem 1.1rem;background:var(--bg-surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);font-size:.88rem;cursor:pointer;font-family:'Inter',sans-serif;">Cancel</button>
+      <button onclick="createDeliverable()" style="padding:.55rem 1.25rem;background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;border-radius:8px;color:#fff;font-size:.88rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:.4rem;">
+        <i class="bi bi-plus-lg"></i> Create
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function createDeliverable() {
+  var title = document.getElementById('dlvTitle').value.trim();
+  if (!title) { alert('Title is required.'); return; }
+  fetch('{{ url_for("create_deliverable", project_id=project.id) }}', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      title: title,
+      description: document.getElementById('dlvDesc').value,
+      section_id: document.getElementById('dlvSection').value || null,
+      assigned_qa_id: document.getElementById('dlvQA').value || null
+    })
+  }).then(r=>r.json()).then(d => {
+    if (d.success) window.location.reload();
+    else alert('Error creating deliverable');
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

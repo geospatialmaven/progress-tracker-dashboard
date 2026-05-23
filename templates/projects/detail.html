@@ -79,6 +79,10 @@
     <a class="tab-item" href="#sections" data-tab="sections"><i class="bi bi-layout-text-sidebar-reverse"></i> Sections</a>
     <a class="tab-item" href="#budget" data-tab="budget"><i class="bi bi-currency-dollar"></i> Budget</a>
     <a class="tab-item" href="#team" data-tab="team"><i class="bi bi-people"></i> Team</a>
+    <a href="{{ url_for('project_progress', project_id=project.id) }}"
+       class="tab-item" style="color:#8b5cf6;font-weight:700;border-bottom:2px solid #8b5cf6;">
+      <i class="bi bi-layers-half"></i> Progress Review
+    </a>
   </div>
 
   <!-- ───────── TAB: OVERVIEW ───────── -->
