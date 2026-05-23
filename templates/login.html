@@ -193,6 +193,42 @@
   .role-card span { font-size: .8rem; font-weight: 600; color: var(--text-secondary); }
   .role-option input:checked + .role-card span { color: var(--primary); }
 
+  /* ── ENTRY ROLE STEP ── */
+  .step-panel { display: none; }
+  .step-panel.active { display: block; animation: fadeUp .3s ease; }
+
+  .entry-heading {
+    font-family: 'Space Grotesk', sans-serif; font-size: 1.45rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: .3rem; text-align: center;
+  }
+  .entry-sub { color: var(--text-secondary); font-size: .88rem; margin-bottom: 1.75rem; text-align: center; }
+
+  .entry-role-grid { display: grid; grid-template-columns: 1fr; gap: .85rem; }
+  .entry-role-card {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.2rem; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--bg-surface-2);
+    cursor: pointer; transition: var(--transition); text-align: left;
+  }
+  .entry-role-card:hover { border-color: var(--erc, var(--primary)); background: var(--erc-bg, var(--primary-glow)); transform: translateX(3px); }
+  .entry-role-icon {
+    width: 46px; height: 46px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.35rem; background: var(--erc-bg, var(--primary-glow));
+  }
+  .entry-role-info h4 { font-size: .95rem; font-weight: 700; color: var(--text-primary); margin: 0 0 .15rem; }
+  .entry-role-info p { font-size: .8rem; color: var(--text-secondary); margin: 0; }
+  .entry-role-card .arrow { margin-left: auto; color: var(--text-muted); font-size: 1rem; transition: var(--transition); }
+  .entry-role-card:hover .arrow { color: var(--erc, var(--primary)); transform: translateX(3px); }
+
+  .back-btn {
+    display: flex; align-items: center; gap: .4rem;
+    background: none; border: none; color: var(--text-muted);
+    font-size: .82rem; cursor: pointer; padding: 0; margin-bottom: 1.1rem;
+    font-family: 'Inter', sans-serif; transition: var(--transition);
+  }
+  .back-btn:hover { color: var(--primary); }
+
   @media (max-width: 768px) {
     .login-left { display: none; }
     .login-right { width: 100%; border-left: none; padding: 2rem 1.5rem; }
@@ -226,88 +262,160 @@
         <div class="feature-item"><i class="bi bi-check-circle-fill"></i>Real-time progress visualization</div>
       </div>
     </div>
-    <div class="coord-decoration">
-      LAT: 30.3753° N<br>
-      LON: 69.3451° E<br>
-      PROJ: WGS 84<br>
-      ZONE: 42N
-    </div>
   </div>
 
   <!-- Right form panel -->
   <div class="login-right">
     <div class="login-form-wrap">
 
-      <!-- Tab switcher -->
-      <div class="auth-tabs">
-        <button class="auth-tab" id="tabSignIn" onclick="switchTab('signin')">
-          <i class="bi bi-box-arrow-in-right"></i> Sign In
-        </button>
-        <button class="auth-tab" id="tabSignUp" onclick="switchTab('signup')">
-          <i class="bi bi-person-plus"></i> Create Account
-        </button>
-      </div>
+      <!-- ══════════════════════════════════════════════
+           STEP 1 — Who are you?
+      ══════════════════════════════════════════════ -->
+      <div id="stepRole" class="step-panel active">
+        <h2 class="entry-heading">Welcome to Geospatial Maven</h2>
+        <p class="entry-sub">Choose how you'd like to continue</p>
 
-      <!-- Flash messages -->
-      {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, msg in messages %}
-      <div class="alert-flash {% if category == 'success' %}alert-success{% endif %}">
-        <i class="bi bi-{% if category == 'success' %}check-circle{% else %}exclamation-circle{% endif %}"></i>
-        {{ msg }}
-      </div>
-      {% endfor %}
-      {% endwith %}
-
-      <!-- ── SIGN IN FORM ── -->
-      <div class="form-panel" id="panelSignIn">
-        <h1 class="login-title">Welcome back</h1>
-        <p class="login-sub">Sign in to your Geospatial Maven account</p>
-
-        <form method="POST" action="{{ url_for('login') }}">
-          <div class="form-group">
-            <label class="form-label-custom">Email Address</label>
-            <div class="input-wrap">
-              <i class="bi bi-envelope input-icon"></i>
-              <input type="email" name="email" id="emailInput" class="form-control-custom"
-                     placeholder="you@geospatialmaven.com" required autocomplete="email">
+        <div class="entry-role-grid">
+          <!-- Visitor -->
+          <div class="entry-role-card" style="--erc:#10b981; --erc-bg:rgba(16,185,129,0.08)"
+               onclick="window.location.href='{{ url_for('home') }}'">
+            <div class="entry-role-icon" style="--erc-bg:rgba(16,185,129,0.12)">
+              <i class="bi bi-globe2" style="color:#10b981"></i>
             </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label-custom">Password</label>
-            <div class="input-wrap">
-              <i class="bi bi-lock input-icon"></i>
-              <input type="password" name="password" id="pwInput" class="form-control-custom"
-                     placeholder="Enter your password" required autocomplete="current-password">
-              <button type="button" class="pw-toggle" onclick="togglePw('pwInput','pwIcon')">
-                <i class="bi bi-eye" id="pwIcon"></i>
-              </button>
+            <div class="entry-role-info">
+              <h4>Visitor</h4>
+              <p>Explore our services &amp; portfolio</p>
             </div>
+            <i class="bi bi-chevron-right arrow"></i>
           </div>
-          <button type="submit" class="login-btn">
-            <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
-          </button>
-        </form>
 
-        <div class="divider">Demo Accounts</div>
-        <div class="demo-accounts">
-          <div class="demo-title">Click to auto-fill credentials</div>
-          <div class="demo-row">
-            <span class="demo-role"><i class="bi bi-shield-fill-check" style="color:#6366f1"></i> Super Admin</span>
-            <span class="demo-creds">admin@geospatialmaven.com</span>
-            <button class="demo-fill-btn" onclick="fillCreds('admin@geospatialmaven.com','admin123')">Fill</button>
+          <!-- Client -->
+          <div class="entry-role-card" style="--erc:#f59e0b; --erc-bg:rgba(245,158,11,0.08)"
+               onclick="selectRole('client')">
+            <div class="entry-role-icon" style="--erc-bg:rgba(245,158,11,0.12)">
+              <i class="bi bi-briefcase-fill" style="color:#f59e0b"></i>
+            </div>
+            <div class="entry-role-info">
+              <h4>Client / Stakeholder</h4>
+              <p>Track your project progress &amp; deliverables</p>
+            </div>
+            <i class="bi bi-chevron-right arrow"></i>
           </div>
-          <div class="demo-row">
-            <span class="demo-role"><i class="bi bi-code-slash" style="color:#10b981"></i> Developer</span>
-            <span class="demo-creds">sarah@geospatialmaven.com</span>
-            <button class="demo-fill-btn" onclick="fillCreds('sarah@geospatialmaven.com','dev123')">Fill</button>
+
+          <!-- Developer / Team -->
+          <div class="entry-role-card" style="--erc:#6366f1; --erc-bg:rgba(99,102,241,0.08)"
+               onclick="selectRole('developer')">
+            <div class="entry-role-icon" style="--erc-bg:rgba(99,102,241,0.12)">
+              <i class="bi bi-code-slash" style="color:#6366f1"></i>
+            </div>
+            <div class="entry-role-info">
+              <h4>Developer / Team Member</h4>
+              <p>Access your workspace, tasks &amp; projects</p>
+            </div>
+            <i class="bi bi-chevron-right arrow"></i>
           </div>
-          <div class="demo-row">
-            <span class="demo-role"><i class="bi bi-person-fill" style="color:#f59e0b"></i> Client</span>
-            <span class="demo-creds">client@undp.org</span>
-            <button class="demo-fill-btn" onclick="fillCreds('client@undp.org','client123')">Fill</button>
+
+          <!-- Admin -->
+          <div class="entry-role-card" style="--erc:#ef4444; --erc-bg:rgba(239,68,68,0.08)"
+               onclick="selectRole('admin')">
+            <div class="entry-role-icon" style="--erc-bg:rgba(239,68,68,0.12)">
+              <i class="bi bi-shield-fill-check" style="color:#ef4444"></i>
+            </div>
+            <div class="entry-role-info">
+              <h4>Administrator</h4>
+              <p>Full control — monitor, assign &amp; manage everything</p>
+            </div>
+            <i class="bi bi-chevron-right arrow"></i>
           </div>
         </div>
       </div>
+
+      <!-- ══════════════════════════════════════════════
+           STEP 2 — Login / Sign Up form
+      ══════════════════════════════════════════════ -->
+      <div id="stepForm" class="step-panel">
+
+        <!-- Back button -->
+        <button class="back-btn" onclick="goBack()">
+          <i class="bi bi-arrow-left"></i> Back
+        </button>
+
+        <!-- Context badge (changes per role) -->
+        <div id="roleBadge" style="display:flex; align-items:center; gap:.5rem; margin-bottom:1.1rem;">
+          <span id="roleBadgeIcon" style="font-size:1.1rem"></span>
+          <span id="roleBadgeText" style="font-size:.82rem; font-weight:600; color:var(--text-secondary)"></span>
+        </div>
+
+        <!-- Tab switcher -->
+        <div class="auth-tabs">
+          <button class="auth-tab" id="tabSignIn" onclick="switchTab('signin')">
+            <i class="bi bi-box-arrow-in-right"></i> Sign In
+          </button>
+          <button class="auth-tab" id="tabSignUp" onclick="switchTab('signup')">
+            <i class="bi bi-person-plus"></i> Create Account
+          </button>
+        </div>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, msg in messages %}
+        <div class="alert-flash {% if category == 'success' %}alert-success{% endif %}">
+          <i class="bi bi-{% if category == 'success' %}check-circle{% else %}exclamation-circle{% endif %}"></i>
+          {{ msg }}
+        </div>
+        {% endfor %}
+        {% endwith %}
+
+        <!-- ── SIGN IN FORM ── -->
+        <div class="form-panel" id="panelSignIn">
+          <h1 class="login-title" id="loginTitle">Welcome back</h1>
+          <p class="login-sub" id="loginSub">Sign in to your Geospatial Maven account</p>
+
+          <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+              <label class="form-label-custom">Email Address</label>
+              <div class="input-wrap">
+                <i class="bi bi-envelope input-icon"></i>
+                <input type="email" name="email" id="emailInput" class="form-control-custom"
+                       placeholder="you@geospatialmaven.com" required autocomplete="email">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label-custom">Password</label>
+              <div class="input-wrap">
+                <i class="bi bi-lock input-icon"></i>
+                <input type="password" name="password" id="pwInput" class="form-control-custom"
+                       placeholder="Enter your password" required autocomplete="current-password">
+                <button type="button" class="pw-toggle" onclick="togglePw('pwInput','pwIcon')">
+                  <i class="bi bi-eye" id="pwIcon"></i>
+                </button>
+              </div>
+            </div>
+            <button type="submit" class="login-btn" style="display:flex;align-items:center;justify-content:center;gap:.55rem;">
+              <i class="bi bi-box-arrow-in-right"></i><span>Sign In</span>
+            </button>
+          </form>
+
+          <div class="divider">Demo Accounts</div>
+          <div class="demo-accounts">
+            <div class="demo-title">Click to auto-fill credentials</div>
+            <div class="demo-row">
+              <span class="demo-role"><i class="bi bi-shield-fill-check" style="color:#6366f1"></i> Super Admin</span>
+              <span class="demo-creds">admin@geospatialmaven.com</span>
+              <button class="demo-fill-btn" onclick="fillCreds('admin@geospatialmaven.com','admin123')">Fill</button>
+            </div>
+            <div class="demo-row">
+              <span class="demo-role"><i class="bi bi-code-slash" style="color:#10b981"></i> Developer</span>
+              <span class="demo-creds">sarah@geospatialmaven.com</span>
+              <button class="demo-fill-btn" onclick="fillCreds('sarah@geospatialmaven.com','dev123')">Fill</button>
+            </div>
+            <div class="demo-row">
+              <span class="demo-role"><i class="bi bi-person-fill" style="color:#f59e0b"></i> Client</span>
+              <span class="demo-creds">client@undp.org</span>
+              <button class="demo-fill-btn" onclick="fillCreds('client@undp.org','client123')">Fill</button>
+            </div>
+          </div>
+        </div><!-- /panelSignIn -->
 
       <!-- ── SIGN UP FORM ── -->
       <div class="form-panel" id="panelSignUp">
@@ -394,21 +502,22 @@
             </div>
           </div>
 
-          <button type="submit" class="login-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">
-            <i class="bi bi-person-check me-2"></i>Create Account
+          <button type="submit" class="login-btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;gap:.55rem;">
+            <i class="bi bi-person-check"></i><span>Create Account</span>
           </button>
         </form>
-      </div>
+      </div><!-- /panelSignUp -->
 
-    </div>
-  </div>
-</div>
+      </div><!-- /stepForm -->
+    </div><!-- /login-form-wrap -->
+  </div><!-- /login-right -->
+</div><!-- /login-page -->
 
 <script>
   // ─── Theme ───────────────────────────────────
   function toggleTheme() {
     var root = document.getElementById('htmlRoot');
-    var current = root.getAttribute('data-theme') || 'dark';
+    var current = root.getAttribute('data-theme') || 'light';
     var next = current === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
     localStorage.setItem('gm-theme', next);
@@ -418,7 +527,56 @@
     var icon = document.getElementById('themeIconFloat');
     if (icon) icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
   }
-  updateThemeIcon(document.getElementById('htmlRoot').getAttribute('data-theme') || 'dark');
+  updateThemeIcon(document.getElementById('htmlRoot').getAttribute('data-theme') || 'light');
+
+  // ─── Role entry selection ────────────────────
+  var roleMeta = {
+    client: {
+      icon: '<i class="bi bi-briefcase-fill" style="color:#f59e0b"></i>',
+      label: 'Signing in as Client / Stakeholder',
+      title: 'Client Portal',
+      sub: 'Sign in to view your project progress and deliverables',
+      signupTitle: 'Register as a Client',
+      signupSub: 'Get access to project dashboards assigned to you'
+    },
+    developer: {
+      icon: '<i class="bi bi-code-slash" style="color:#6366f1"></i>',
+      label: 'Signing in as Developer / Team Member',
+      title: 'Team Portal',
+      sub: 'Sign in to your workspace, tasks and assigned projects',
+      signupTitle: 'Join as a Developer',
+      signupSub: 'Create your team account to start working on projects'
+    },
+    admin: {
+      icon: '<i class="bi bi-shield-fill-check" style="color:#ef4444"></i>',
+      label: 'Administrator Access',
+      title: 'Admin Portal',
+      sub: 'Sign in for full control — monitor, assign and manage everything',
+      signupTitle: 'Admin Registration',
+      signupSub: 'Admin accounts are reviewed before activation'
+    }
+  };
+
+  function selectRole(role) {
+    var meta = roleMeta[role] || roleMeta['developer'];
+    // Update badge
+    document.getElementById('roleBadgeIcon').innerHTML = meta.icon;
+    document.getElementById('roleBadgeText').textContent = meta.label;
+    // Update sign-in heading
+    document.getElementById('loginTitle').textContent = meta.title;
+    document.getElementById('loginSub').textContent = meta.sub;
+    // Transition
+    document.getElementById('stepRole').classList.remove('active');
+    document.getElementById('stepForm').classList.add('active');
+    // Determine default tab
+    var initTab = (new URLSearchParams(window.location.search).get('tab') === 'signup') ? 'signup' : 'signin';
+    switchTab(initTab);
+  }
+
+  function goBack() {
+    document.getElementById('stepForm').classList.remove('active');
+    document.getElementById('stepRole').classList.add('active');
+  }
 
   // ─── Tabs ────────────────────────────────────
   function switchTab(tab) {
@@ -429,13 +587,21 @@
     document.getElementById('tabSignUp').classList.toggle('active', isSignup);
   }
 
-  // Detect ?tab=signup in URL
-  var initTab = (new URLSearchParams(window.location.search).get('tab') === 'signup') ? 'signup' : 'signin';
-  // Also stay on signup if there was a flash error (after a failed signup POST)
+  // If a flash message is present (POST redirect), skip role step and go straight to form
   {% with messages = get_flashed_messages(with_categories=true) %}
-  {% for category, msg in messages %}{% endfor %}
+  {% if messages %}
+  (function() {
+    var savedRole = sessionStorage.getItem('gm-portal-role') || 'developer';
+    selectRole(savedRole);
+  })();
+  {% endif %}
   {% endwith %}
-  switchTab(initTab);
+
+  // If ?tab=signup, also skip role step (linked from elsewhere)
+  if (new URLSearchParams(window.location.search).get('tab') === 'signup') {
+    var savedRole = sessionStorage.getItem('gm-portal-role') || 'developer';
+    selectRole(savedRole);
+  }
 
   // ─── Helpers ─────────────────────────────────
   function togglePw(inputId, iconId) {
@@ -445,9 +611,21 @@
     else { i.type = 'password'; icon.className = 'bi bi-eye'; }
   }
   function fillCreds(email, pw) {
+    // Auto-select developer role for demo fills
+    if (!document.getElementById('stepForm').classList.contains('active')) {
+      selectRole('developer');
+    }
     document.getElementById('emailInput').value = email;
     document.getElementById('pwInput').value = pw;
   }
+
+  // Save selected role to sessionStorage so it persists through POST redirect
+  document.querySelectorAll('.entry-role-card[onclick^="selectRole"]').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var match = this.getAttribute('onclick').match(/selectRole\('(\w+)'\)/);
+      if (match) sessionStorage.setItem('gm-portal-role', match[1]);
+    });
+  });
 </script>
 </body>
 </html>
