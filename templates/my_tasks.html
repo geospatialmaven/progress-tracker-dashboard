@@ -214,6 +214,12 @@
                     <div class="kc-progress-fill" style="width:{{ t.progress }}%; background:{{ t.status_color }}"></div>
                   </div>
                   {% endif %}
+                  <div style="margin-top:.5rem; text-align:right;">
+                    <button class="kanban-add-btn" style="margin:0;padding:3px 8px;width:auto;font-size:.72rem;"
+                            onclick="event.stopPropagation(); openForward({{ t.id }}, '{{ t.title|replace("'","\'") }}')">
+                      <i class="bi bi-send"></i> Forward
+                    </button>
+                  </div>
                 </div>
                 {% endfor %}
               </div>
@@ -398,6 +404,62 @@
     </div>
 
   </div><!-- /tasks-main -->
+</div>
+
+<!-- ── FORWARD TASK MODAL ── -->
+<div id="forwardModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.5); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:1.75rem; width:100%; max-width:440px; box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.1rem;">
+      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0;">
+        <i class="bi bi-send" style="color:#6366f1"></i> Forward Task
+      </h3>
+      <button onclick="closeForward()" style="background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div style="background:var(--bg-surface-2); border-radius:8px; padding:.65rem .85rem; margin-bottom:1rem; font-size:.85rem; color:var(--text-secondary);">
+      <i class="bi bi-check2-square" style="color:var(--primary)"></i>
+      <span id="forwardTaskTitle" style="font-weight:600; color:var(--text-primary); margin-left:.35rem;"></span>
+    </div>
+
+    {% if current_user.role != 'super_admin' %}
+    <div style="background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.3); border-radius:8px; padding:.6rem .85rem; margin-bottom:1rem; font-size:.8rem; color:#f59e0b; display:flex; gap:.5rem; align-items:center;">
+      <i class="bi bi-shield-exclamation"></i>
+      This request will be sent to the Administrator for approval before taking effect.
+    </div>
+    {% endif %}
+
+    <div style="margin-bottom:.85rem;">
+      <label style="font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--text-muted); display:block; margin-bottom:.4rem;">Forward Type</label>
+      <select id="forwardType" style="width:100%; padding:.6rem .85rem; background:var(--bg-surface-2); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); font-size:.88rem; font-family:'Inter',sans-serif;">
+        <option value="General">General Assignment</option>
+        <option value="QA Review">QA / Quality Check</option>
+        <option value="Write-up">Write-up / Documentation</option>
+        <option value="Final Review">Final Review</option>
+        <option value="Field Work">Field Work</option>
+        <option value="Data Analysis">Data Analysis</option>
+        <option value="Client Review">Client Review</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:.85rem;">
+      <label style="font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--text-muted); display:block; margin-bottom:.4rem;">Assign To</label>
+      <select id="forwardAssignTo" style="width:100%; padding:.6rem .85rem; background:var(--bg-surface-2); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); font-size:.88rem; font-family:'Inter',sans-serif;">
+        <option value="">Loading...</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:1.1rem;">
+      <label style="font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:var(--text-muted); display:block; margin-bottom:.4rem;">Note (optional)</label>
+      <textarea id="forwardMessage" rows="2" placeholder="e.g. Ready for QA — data processing complete" style="width:100%; padding:.6rem .85rem; background:var(--bg-surface-2); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); font-size:.88rem; font-family:'Inter',sans-serif; resize:vertical;"></textarea>
+    </div>
+
+    <div style="display:flex; gap:.6rem; justify-content:flex-end;">
+      <button onclick="closeForward()" style="padding:.55rem 1.1rem; background:var(--bg-surface-2); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); font-size:.88rem; cursor:pointer; font-family:'Inter',sans-serif;">Cancel</button>
+      <button onclick="submitForward()" style="padding:.55rem 1.25rem; background:linear-gradient(135deg,#6366f1,#4f46e5); border:none; border-radius:8px; color:#fff; font-size:.88rem; font-weight:600; cursor:pointer; font-family:'Inter',sans-serif; display:flex; align-items:center; gap:.4rem;">
+        <i class="bi bi-send"></i> Submit Request
+      </button>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -585,6 +647,48 @@ function calNav(dir) {
   if (calMonth > 11) { calMonth = 0; calYear++; }
   if (calMonth < 0)  { calMonth = 11; calYear--; }
   renderCalendar();
+}
+
+// ── FORWARD TASK MODAL ───────────────────────
+var forwardTaskId = null;
+var allUsers = [];
+
+function openForward(taskId, taskTitle) {
+  forwardTaskId = taskId;
+  document.getElementById('forwardTaskTitle').textContent = taskTitle;
+  document.getElementById('forwardModal').style.display = 'flex';
+  if (!allUsers.length) {
+    fetch('/api/users').then(r=>r.json()).then(users => {
+      allUsers = users;
+      var sel = document.getElementById('forwardAssignTo');
+      sel.innerHTML = '<option value="">— Select person —</option>';
+      users.forEach(u => {
+        sel.innerHTML += `<option value="${u.id}">${u.name} (${u.role})</option>`;
+      });
+    });
+  }
+}
+function closeForward() {
+  document.getElementById('forwardModal').style.display = 'none';
+  forwardTaskId = null;
+}
+function submitForward() {
+  var assignTo = document.getElementById('forwardAssignTo').value;
+  var message  = document.getElementById('forwardMessage').value;
+  var ftype    = document.getElementById('forwardType').value;
+  if (!assignTo) { alert('Please select a person.'); return; }
+  fetch(`/tasks/${forwardTaskId}/forward`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({assign_to_id: parseInt(assignTo), message, forward_type: ftype})
+  }).then(r=>r.json()).then(data => {
+    closeForward();
+    if (data.direct) {
+      alert('✓ ' + data.message);
+    } else {
+      alert('⏳ ' + data.message);
+    }
+    loadActivity();
+  });
 }
 
 // ── ACTIVITY FEED (Notion) ────────────────────

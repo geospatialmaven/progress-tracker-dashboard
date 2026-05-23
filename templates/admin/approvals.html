@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Approvals{% endblock %}
+{% block page_title %}Approvals{% endblock %}
+
+{% block head %}
+<style>
+.approval-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.1rem 1.25rem; margin-bottom: .85rem;
+  display: flex; gap: 1rem; align-items: flex-start;
+  transition: var(--transition);
+}
+.approval-card:hover { border-color: var(--primary); }
+.approval-card.approved { border-left: 3px solid #10b981; opacity:.85; }
+.approval-card.rejected { border-left: 3px solid #ef4444; opacity:.75; }
+.approval-card.pending  { border-left: 3px solid #f59e0b; }
+
+.approval-icon {
+  width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+}
+.approval-body { flex: 1; min-width: 0; }
+.approval-title { font-size: .93rem; font-weight: 700; color: var(--text-primary); margin-bottom: .3rem; }
+.approval-meta { font-size: .8rem; color: var(--text-secondary); margin-bottom: .5rem; line-height: 1.5; }
+.approval-msg { font-size: .82rem; color: var(--text-muted); font-style: italic; margin-bottom: .6rem; }
+.approval-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+.btn-approve { padding: .38rem .9rem; background: #10b981; color: #fff; border: none; border-radius: 7px; font-size: .82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: .35rem; font-family: 'Inter',sans-serif; transition: var(--transition); }
+.btn-approve:hover { background: #059669; }
+.btn-reject  { padding: .38rem .9rem; background: var(--bg-surface-2); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 7px; font-size: .82rem; font-weight: 600; cursor: pointer; font-family: 'Inter',sans-serif; transition: var(--transition); }
+.btn-reject:hover  { border-color: #ef4444; color: #ef4444; }
+.reject-form { display: none; margin-top: .5rem; gap: .5rem; flex-wrap: wrap; }
+.reject-form.open { display: flex; }
+.reject-note { flex: 1; min-width: 160px; padding: .38rem .75rem; background: var(--bg-surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: .82rem; font-family: 'Inter',sans-serif; }
+.status-pill { padding: 3px 10px; border-radius: 10px; font-size: .75rem; font-weight: 700; }
+.sp-pending  { background: rgba(245,158,11,.15); color: #f59e0b; }
+.sp-approved { background: rgba(16,185,129,.15); color: #10b981; }
+.sp-rejected { background: rgba(239,68,68,.15); color: #ef4444; }
+.arrow-row { display: flex; align-items: center; gap: .5rem; font-size: .85rem; color: var(--text-secondary); }
+.arrow-row strong { color: var(--text-primary); }
+.forward-type-tag { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(99,102,241,.15); color: #6366f1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div>
+      <h2 class="page-h2">Task Assignment Approvals</h2>
+      <p class="page-sub">You are the high command — all forwarding requests need your sign-off</p>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid kpi-grid-3" style="margin-bottom:1.5rem;">
+    <div class="kpi-card" style="--kc:#f59e0b">
+      <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ pending|length }}</div><div class="kpi-label">Pending</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#10b981">
+      <div class="kpi-icon"><i class="bi bi-check-circle"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ history|selectattr('status','eq','approved')|list|length }}</div><div class="kpi-label">Approved</div></div>
+    </div>
+    <div class="kpi-card" style="--kc:#ef4444">
+      <div class="kpi-icon"><i class="bi bi-x-circle"></i></div>
+      <div class="kpi-body"><div class="kpi-value">{{ history|selectattr('status','eq','rejected')|list|length }}</div><div class="kpi-label">Rejected</div></div>
+    </div>
+  </div>
+
+  <!-- ── PENDING REQUESTS ── -->
+  <div class="dash-panel" style="margin-bottom:1.5rem;">
+    <div class="panel-header">
+      <h3 class="panel-title"><i class="bi bi-hourglass-split" style="color:#f59e0b"></i> Pending Requests
+        {% if pending %}<span class="nav-badge" style="margin-left:.5rem">{{ pending|length }}</span>{% endif %}
+      </h3>
+    </div>
+
+    {% if pending %}
+      {% for req in pending %}
+      <div class="approval-card pending">
+        <div class="approval-icon" style="background:rgba(245,158,11,.12); color:#f59e0b;">
+          <i class="bi bi-send"></i>
+        </div>
+        <div class="approval-body">
+          <div class="approval-title">
+            {{ req.task.title if req.task else '—' }}
+            {% if req.forward_type %}<span class="forward-type-tag">{{ req.forward_type }}</span>{% endif %}
+          </div>
+          <div class="arrow-row">
+            <div class="mini-avatar" style="background:{{ req.requested_by.avatar_color }};width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#fff;font-weight:700">
+              {{ req.requested_by.get_initials() }}
+            </div>
+            <strong>{{ req.requested_by.name }}</strong>
+            <span style="color:var(--text-muted)">({{ req.requested_by.role_label }})</span>
+            <i class="bi bi-arrow-right" style="color:var(--primary)"></i>
+            <div class="mini-avatar" style="background:{{ req.assign_to.avatar_color }};width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#fff;font-weight:700">
+              {{ req.assign_to.get_initials() }}
+            </div>
+            <strong>{{ req.assign_to.name }}</strong>
+            <span style="color:var(--text-muted)">({{ req.assign_to.role_label }})</span>
+          </div>
+          {% if req.task and req.task.section %}
+          <div class="approval-meta" style="margin-top:.3rem">
+            <i class="bi bi-folder2"></i> {{ req.task.section.project.name[:50] if req.task.section.project else '—' }}
+            · <i class="bi bi-layers"></i> {{ req.task.section.name[:40] }}
+          </div>
+          {% endif %}
+          {% if req.message %}
+          <div class="approval-msg"><i class="bi bi-chat-quote"></i> "{{ req.message }}"</div>
+          {% endif %}
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.6rem">
+            <i class="bi bi-clock"></i> Requested {{ req.created_at.strftime('%d %b %Y at %H:%M') }}
+          </div>
+
+          <div class="approval-actions">
+            <form method="POST" action="{{ url_for('approve_assignment', req_id=req.id) }}" style="display:inline">
+              <button type="submit" class="btn-approve">
+                <i class="bi bi-check-lg"></i> Approve
+              </button>
+            </form>
+            <button class="btn-reject" onclick="toggleReject({{ req.id }})">
+              <i class="bi bi-x-lg"></i> Reject
+            </button>
+            <span class="sp-pending status-pill">Pending</span>
+          </div>
+
+          <!-- Reject inline form -->
+          <form method="POST" action="{{ url_for('reject_assignment', req_id=req.id) }}" class="reject-form" id="rejectForm-{{ req.id }}">
+            <input type="text" name="note" class="reject-note" placeholder="Reason for rejection (optional)">
+            <button type="submit" class="btn-reject" style="color:#ef4444;border-color:#ef4444">Confirm Reject</button>
+            <button type="button" class="btn-reject" onclick="toggleReject({{ req.id }})">Cancel</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:2rem 0;">
+        <i class="bi bi-shield-check" style="font-size:2.5rem;color:#10b981;display:block;margin-bottom:.75rem;"></i>
+        <p style="color:var(--text-secondary)">No pending requests — all clear!</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ── HISTORY ── -->
+  {% if history %}
+  <div class="dash-panel">
+    <div class="panel-header">
+      <h3 class="panel-title"><i class="bi bi-clock-history"></i> Recent History</h3>
+    </div>
+    {% for req in history %}
+    <div class="approval-card {{ req.status }}">
+      <div class="approval-icon" style="background:{% if req.status=='approved' %}rgba(16,185,129,.12){% else %}rgba(239,68,68,.12){% endif %}; color:{% if req.status=='approved' %}#10b981{% else %}#ef4444{% endif %};">
+        <i class="bi bi-{% if req.status=='approved' %}check-circle{% else %}x-circle{% endif %}"></i>
+      </div>
+      <div class="approval-body">
+        <div class="approval-title">{{ req.task.title if req.task else '—' }}
+          {% if req.forward_type %}<span class="forward-type-tag">{{ req.forward_type }}</span>{% endif %}
+        </div>
+        <div class="arrow-row">
+          <strong>{{ req.requested_by.name if req.requested_by else '?' }}</strong>
+          <i class="bi bi-arrow-right" style="color:var(--primary)"></i>
+          <strong>{{ req.assign_to.name if req.assign_to else '?' }}</strong>
+          <span class="sp-{{ req.status }} status-pill">{{ req.status|title }}</span>
+        </div>
+        {% if req.admin_note %}
+        <div class="approval-msg"><i class="bi bi-chat-quote"></i> "{{ req.admin_note }}"</div>
+        {% endif %}
+        <div style="font-size:.75rem;color:var(--text-muted)">
+          Reviewed {{ req.reviewed_at.strftime('%d %b %Y at %H:%M') if req.reviewed_at else '—' }}
+          {% if req.reviewed_by %} by {{ req.reviewed_by.name }}{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleReject(id) {
+  var f = document.getElementById('rejectForm-' + id);
+  f.classList.toggle('open');
+}
+</script>
+{% endblock %}

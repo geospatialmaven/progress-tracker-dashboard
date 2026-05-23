@@ -205,6 +205,11 @@ body::before {
   background: var(--primary-glow);
   color: var(--primary);
 }
+.nav-badge {
+  margin-left: auto; background: #ef4444; color: #fff;
+  font-size: .65rem; font-weight: 700; border-radius: 10px;
+  padding: 1px 6px; min-width: 18px; text-align: center; line-height: 1.6;
+}
 .sidebar-nav .nav-link.active::before {
   content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
   width: 3px; height: 60%; background: var(--primary); border-radius: 0 2px 2px 0;

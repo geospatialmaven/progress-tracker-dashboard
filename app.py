@@ -272,6 +272,26 @@ class SectionAssignment(db.Model):
     user = db.relationship('User')
 
 
+class TaskAssignmentRequest(db.Model):
+    __tablename__ = 'task_assignment_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'))
+    requested_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    assign_to_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    message = db.Column(db.String(300), default='')
+    forward_type = db.Column(db.String(50), default='')  # e.g. 'QA', 'Write-up', 'Review', 'General'
+    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
+    admin_note = db.Column(db.String(200), default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    task = db.relationship('Task')
+    requested_by = db.relationship('User', foreign_keys=[requested_by_id])
+    assign_to = db.relationship('User', foreign_keys=[assign_to_id])
+    reviewed_by = db.relationship('User', foreign_keys=[reviewed_by_id])
+
+
 class ActivityLog(db.Model):
     __tablename__ = 'activity_logs'
     id = db.Column(db.Integer, primary_key=True)
@@ -311,6 +331,14 @@ def not_client(f):
             return redirect(url_for('dashboard'))
         return f(*args, **kwargs)
     return decorated
+
+
+@app.context_processor
+def inject_globals():
+    pending = 0
+    if current_user.is_authenticated and current_user.role == 'super_admin':
+        pending = TaskAssignmentRequest.query.filter_by(status='pending').count()
+    return {'pending_approvals': pending}
 
 
 def log_act(action, description, project_id=None, icon='bi-activity', color='#10b981'):
@@ -998,6 +1026,103 @@ def my_tasks():
     sprints = sorted(set(t.sprint_label for t in tasks if t.sprint_label))
     return render_template('my_tasks.html', tasks=tasks, today=date.today(),
                            tasks_json=tasks_json, sprints=sprints)
+
+
+# ── TASK FORWARDING & APPROVALS ──────────────────────────────────────────────
+
+@app.route('/tasks/<int:task_id>/forward', methods=['POST'])
+@login_required
+def forward_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    data = request.get_json() or {}
+    assign_to_id = data.get('assign_to_id')
+    if not assign_to_id:
+        return jsonify({'error': 'No assignee selected'}), 400
+
+    # Admin can assign directly without approval
+    if current_user.role == 'super_admin':
+        task.assigned_to_id = int(assign_to_id)
+        proj_id = task.section.project_id if task.section else None
+        target = User.query.get(int(assign_to_id))
+        log_act('task_assigned', f'Assigned "{task.title[:50]}" to {target.name if target else "user"}',
+                proj_id, 'bi-person-check-fill', '#6366f1')
+        db.session.commit()
+        return jsonify({'success': True, 'direct': True,
+                        'message': f'Task assigned to {target.name if target else "user"} directly.'})
+
+    # Developer / Client → create a pending request
+    req = TaskAssignmentRequest(
+        task_id=task_id,
+        requested_by_id=current_user.id,
+        assign_to_id=int(assign_to_id),
+        message=data.get('message', ''),
+        forward_type=data.get('forward_type', 'General')
+    )
+    db.session.add(req)
+    proj_id = task.section.project_id if task.section else None
+    target = User.query.get(int(assign_to_id))
+    log_act('forward_requested', f'Requested to forward "{task.title[:45]}" → {target.name if target else "user"} (pending approval)',
+            proj_id, 'bi-send', '#f59e0b')
+    db.session.commit()
+    return jsonify({'success': True, 'direct': False,
+                    'message': 'Forward request submitted. Waiting for admin approval.'})
+
+
+@app.route('/admin/approvals')
+@login_required
+@admin_required
+def admin_approvals():
+    pending = TaskAssignmentRequest.query.filter_by(status='pending').order_by(
+        TaskAssignmentRequest.created_at.desc()).all()
+    history = TaskAssignmentRequest.query.filter(
+        TaskAssignmentRequest.status != 'pending').order_by(
+        TaskAssignmentRequest.reviewed_at.desc()).limit(30).all()
+    all_users = User.query.filter(User.role != 'client').all()
+    return render_template('admin/approvals.html', pending=pending, history=history, all_users=all_users)
+
+
+@app.route('/admin/approvals/<int:req_id>/approve', methods=['POST'])
+@login_required
+@admin_required
+def approve_assignment(req_id):
+    req = TaskAssignmentRequest.query.get_or_404(req_id)
+    req.status = 'approved'
+    req.reviewed_at = datetime.utcnow()
+    req.reviewed_by_id = current_user.id
+    # Actually perform the assignment
+    task = req.task
+    task.assigned_to_id = req.assign_to_id
+    proj_id = task.section.project_id if task.section else None
+    log_act('assignment_approved', f'Approved forward of "{task.title[:45]}" → {req.assign_to.name}',
+            proj_id, 'bi-check-circle-fill', '#10b981')
+    db.session.commit()
+    flash(f'Assignment approved — "{task.title[:50]}" now assigned to {req.assign_to.name}.', 'success')
+    return redirect(url_for('admin_approvals'))
+
+
+@app.route('/admin/approvals/<int:req_id>/reject', methods=['POST'])
+@login_required
+@admin_required
+def reject_assignment(req_id):
+    req = TaskAssignmentRequest.query.get_or_404(req_id)
+    req.status = 'rejected'
+    req.reviewed_at = datetime.utcnow()
+    req.reviewed_by_id = current_user.id
+    req.admin_note = request.form.get('note', '')
+    proj_id = req.task.section.project_id if req.task and req.task.section else None
+    log_act('assignment_rejected', f'Rejected forward of "{req.task.title[:45]}"',
+            proj_id, 'bi-x-circle-fill', '#ef4444')
+    db.session.commit()
+    flash(f'Assignment rejected.', 'info')
+    return redirect(url_for('admin_approvals'))
+
+
+@app.route('/api/users')
+@login_required
+def api_users():
+    users = User.query.filter(User.is_active == True, User.role != 'client').all()
+    return jsonify([{'id': u.id, 'name': u.name, 'role': u.role_label,
+                     'avatar_color': u.avatar_color, 'initials': u.get_initials()} for u in users])
 
 
 # Activity feed API
