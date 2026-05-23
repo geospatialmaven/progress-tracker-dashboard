@@ -21,6 +21,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+login_manager.login_message = 'Please sign in to access the dashboard.'
 login_manager.login_message = 'Please login to access this page.'
 login_manager.login_message_category = 'warning'
 
@@ -299,6 +300,11 @@ def not_client(f):
 # ─── ROUTES ──────────────────────────────────────────────────────────────────
 
 @app.route('/')
+def home():
+    return render_template('public/home.html')
+
+
+@app.route('/app')
 def index():
     return redirect(url_for('dashboard') if current_user.is_authenticated else url_for('login'))
 

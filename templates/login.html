@@ -12,7 +12,7 @@
 <script>
   // Apply saved theme before paint to avoid flash
   (function() {
-    var t = localStorage.getItem('gm-theme') || 'dark';
+    var t = localStorage.getItem('gm-theme') || 'light';
     document.getElementById('htmlRoot').setAttribute('data-theme', t);
   })();
 </script>
@@ -164,7 +164,7 @@
 
   /* ── THEME TOGGLE (floating) ── */
   .theme-toggle-float {
-    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999;
+    position: fixed; top: 1.25rem; left: 1.25rem; z-index: 999;
     width: 38px; height: 38px; border-radius: 50%;
     background: var(--bg-surface-2); border: 1px solid var(--border);
     color: var(--text-secondary); cursor: pointer;

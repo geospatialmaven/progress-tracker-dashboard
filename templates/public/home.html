@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en" id="htmlRoot">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geospatial Maven — Mapping a Sustainable World</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<script>
+  (function() {
+    var t = localStorage.getItem('gm-theme') || 'light';
+    document.getElementById('htmlRoot').setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+/* ═══════════════════════════════════════════
+   GEOSPATIAL MAVEN — PUBLIC HOMEPAGE
+   ═══════════════════════════════════════════ */
+
+:root {
+  --primary:   #10b981;
+  --primary-d: #059669;
+  --primary-l: #34d399;
+  --secondary: #6366f1;
+  --accent:    #f59e0b;
+  --cyan:      #06b6d4;
+  --purple:    #8b5cf6;
+  --danger:    #ef4444;
+
+  --bg:        #050a14;
+  --bg2:       #0d1117;
+  --bg3:       #161b22;
+  --surface:   rgba(255,255,255,0.04);
+  --border:    rgba(255,255,255,0.08);
+  --text:      #e6edf3;
+  --text2:     #8b949e;
+  --text3:     #6e7681;
+
+  --radius:    14px;
+  --radius-sm: 8px;
+  --shadow:    0 8px 40px rgba(0,0,0,0.5);
+  --glow-g:    0 0 60px rgba(16,185,129,0.25);
+  --glow-i:    0 0 60px rgba(99,102,241,0.25);
+}
+
+[data-theme="light"] {
+  --bg:      #f0f6ff;
+  --bg2:     #e8f0fe;
+  --bg3:     #dbe8ff;
+  --surface: rgba(255,255,255,0.7);
+  --border:  rgba(0,0,0,0.08);
+  --text:    #0f172a;
+  --text2:   #475569;
+  --text3:   #94a3b8;
+  --shadow:  0 8px 40px rgba(0,0,0,0.1);
+  --glow-g:  0 0 60px rgba(16,185,129,0.15);
+  --glow-i:  0 0 60px rgba(99,102,241,0.15);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 3px; }
+
+/* ══════════════════════════════════════
+   NAVBAR
+══════════════════════════════════════ */
+.gm-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  padding: .9rem 0;
+  background: rgba(5,10,20,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  transition: all 0.3s;
+}
+[data-theme="light"] .gm-nav {
+  background: rgba(240,246,255,0.9);
+}
+.gm-nav.scrolled {
+  padding: .6rem 0;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: .6rem;
+  text-decoration: none;
+}
+.nav-logo img { height: 38px; width: auto; }
+.nav-logo-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .95rem; font-weight: 700;
+  color: var(--text); line-height: 1.2;
+}
+.nav-logo-sub { font-size: .6rem; color: var(--primary); font-style: italic; font-weight: 500; }
+.nav-links { display: flex; align-items: center; gap: .25rem; }
+.nav-link-item {
+  color: var(--text2); text-decoration: none;
+  font-size: .875rem; font-weight: 500;
+  padding: .45rem .85rem; border-radius: 8px;
+  transition: all 0.2s;
+}
+.nav-link-item:hover { color: var(--primary); background: rgba(16,185,129,0.08); }
+.nav-cta {
+  background: linear-gradient(135deg, var(--primary), var(--primary-d));
+  color: #fff !important; padding: .5rem 1.25rem !important;
+  border-radius: 8px; font-weight: 600 !important;
+  box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+  transition: all 0.2s !important;
+}
+.nav-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16,185,129,0.45) !important;
+  background: var(--bg) !important;
+}
+.theme-btn-nav {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; transition: all 0.2s; margin-right: .5rem;
+}
+.theme-btn-nav:hover { color: var(--primary); border-color: var(--primary); }
+
+/* ══════════════════════════════════════
+   HERO
+══════════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex; align-items: center;
+  position: relative; overflow: hidden;
+  padding: 7rem 0 4rem;
+}
+.hero-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(16,185,129,0.12) 0%, transparent 60%),
+              radial-gradient(ellipse 60% 50% at 80% 80%, rgba(99,102,241,0.10) 0%, transparent 55%),
+              radial-gradient(ellipse 50% 40% at 10% 90%, rgba(6,182,212,0.08) 0%, transparent 50%),
+              var(--bg);
+}
+[data-theme="light"] .hero-bg {
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(16,185,129,0.15) 0%, transparent 60%),
+              radial-gradient(ellipse 60% 50% at 80% 80%, rgba(99,102,241,0.12) 0%, transparent 55%),
+              radial-gradient(ellipse 50% 40% at 10% 90%, rgba(6,182,212,0.10) 0%, transparent 50%),
+              var(--bg);
+}
+.hero-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(16,185,129,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16,185,129,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+[data-theme="light"] .hero-grid {
+  background-image:
+    linear-gradient(rgba(16,185,129,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16,185,129,0.07) 1px, transparent 1px);
+}
+.hero-orbs { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(80px); animation: float 8s ease-in-out infinite;
+}
+.orb-1 { width: 500px; height: 500px; background: rgba(16,185,129,0.08); top: -200px; right: -100px; animation-delay: 0s; }
+.orb-2 { width: 400px; height: 400px; background: rgba(99,102,241,0.08); bottom: -100px; left: -100px; animation-delay: 3s; }
+.orb-3 { width: 300px; height: 300px; background: rgba(6,182,212,0.06); top: 30%; left: 40%; animation-delay: 5s; }
+@keyframes float {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(30px,-20px) scale(1.05); }
+  66% { transform: translate(-20px,15px) scale(0.97); }
+}
+.hero-content { position: relative; z-index: 1; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+  color: var(--primary); padding: .35rem 1rem; border-radius: 100px;
+  font-size: .8rem; font-weight: 600; letter-spacing: .5px;
+  text-transform: uppercase; margin-bottom: 1.5rem;
+}
+.hero-badge::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--primary); animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .5; transform: scale(1.4); }
+}
+.hero-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(2.8rem, 6vw, 5rem);
+  font-weight: 800; line-height: 1.1;
+  letter-spacing: -1px; margin-bottom: 1.5rem;
+  color: var(--text);
+}
+.hero-title .grad {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--cyan) 40%, var(--secondary) 80%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub {
+  font-size: 1.15rem; color: var(--text2); line-height: 1.7;
+  max-width: 560px; margin-bottom: 2.5rem;
+}
+.hero-btns { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 3rem; }
+.btn-hero-primary {
+  padding: .85rem 2rem; border-radius: 10px; font-weight: 700;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff; text-decoration: none; font-size: .95rem;
+  box-shadow: 0 8px 30px rgba(16,185,129,0.35);
+  transition: all 0.3s; display: inline-flex; align-items: center; gap: .5rem;
+  border: none; cursor: pointer;
+}
+.btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(16,185,129,0.5); color: #fff; }
+.btn-hero-outline {
+  padding: .85rem 2rem; border-radius: 10px; font-weight: 600;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); text-decoration: none;
+  font-size: .95rem; backdrop-filter: blur(10px);
+  transition: all 0.3s; display: inline-flex; align-items: center; gap: .5rem;
+}
+.btn-hero-outline:hover { border-color: var(--primary); color: var(--primary); background: rgba(16,185,129,0.06); }
+.hero-stats {
+  display: flex; gap: 2.5rem; flex-wrap: wrap;
+}
+.hero-stat-num {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem; font-weight: 800; color: var(--text);
+  background: linear-gradient(135deg, var(--primary), var(--cyan));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1;
+}
+.hero-stat-label { font-size: .78rem; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-top: .25rem; }
+.hero-visual { position: relative; z-index: 1; }
+.hero-card-wrap {
+  position: relative; padding: 1.5rem;
+}
+.hero-map-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  padding: 1.5rem;
+  box-shadow: var(--shadow), var(--glow-g);
+  position: relative; overflow: hidden;
+}
+[data-theme="light"] .hero-map-card {
+  background: rgba(255,255,255,0.8);
+}
+.hero-map-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(99,102,241,0.05));
+  pointer-events: none;
+}
+.map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.map-title { font-size: .8rem; font-weight: 600; color: var(--text2); letter-spacing: .5px; text-transform: uppercase; }
+.map-dots { display: flex; gap: .35rem; }
+.map-dot { width: 10px; height: 10px; border-radius: 50%; }
+.coord-grid {
+  width: 100%; aspect-ratio: 4/3;
+  background: linear-gradient(rgba(16,185,129,0.06) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(16,185,129,0.06) 1px, transparent 1px);
+  background-size: 30px 30px;
+  border-radius: 10px; position: relative;
+  overflow: hidden; border: 1px solid rgba(16,185,129,0.1);
+}
+.coord-grid svg { width: 100%; height: 100%; position: absolute; inset: 0; }
+.map-pins { position: absolute; inset: 0; }
+.map-pin {
+  position: absolute; width: 10px; height: 10px;
+  border-radius: 50%; transform: translate(-50%,-50%);
+  animation: pin-pulse 3s ease-in-out infinite;
+}
+.map-pin::after {
+  content: ''; position: absolute; inset: -4px;
+  border-radius: 50%; border: 2px solid currentColor;
+  animation: pin-ring 3s ease-in-out infinite;
+  opacity: 0;
+}
+@keyframes pin-pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.3); } }
+@keyframes pin-ring { 0% { opacity: .8; transform: scale(.8); } 100% { opacity: 0; transform: scale(2.5); } }
+.map-metrics {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: 1rem;
+}
+.map-metric {
+  background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.12);
+  border-radius: 10px; padding: .75rem;
+}
+.map-metric-val { font-family: 'Space Grotesk', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--primary); }
+.map-metric-key { font-size: .72rem; color: var(--text3); margin-top: .1rem; }
+.float-badge {
+  position: absolute; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: .6rem 1rem; backdrop-filter: blur(12px);
+  box-shadow: var(--shadow); white-space: nowrap;
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .8rem; font-weight: 600; color: var(--text);
+  animation: badge-float 4s ease-in-out infinite;
+}
+[data-theme="light"] .float-badge { background: rgba(255,255,255,0.95); }
+.float-badge-1 { top: 0; right: 0; animation-delay: 0s; }
+.float-badge-2 { bottom: 1rem; left: -.5rem; animation-delay: 2s; }
+@keyframes badge-float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ══════════════════════════════════════
+   SECTION COMMONS
+══════════════════════════════════════ */
+section { padding: 6rem 0; }
+.section-badge {
+  display: inline-block; background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.2); color: var(--primary);
+  padding: .3rem .9rem; border-radius: 100px;
+  font-size: .75rem; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 1rem;
+}
+.section-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  font-weight: 800; line-height: 1.2;
+  color: var(--text); margin-bottom: 1rem;
+}
+.section-title .accent { color: var(--primary); }
+.section-sub { font-size: 1.05rem; color: var(--text2); line-height: 1.7; max-width: 560px; }
+.divider-line {
+  width: 60px; height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  margin: 1.25rem 0;
+}
+
+/* ══════════════════════════════════════
+   SERVICES
+══════════════════════════════════════ */
+.services-section { background: var(--bg2); }
+[data-theme="light"] .services-section { background: #e8f2ff; }
+.service-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem 1.75rem;
+  height: 100%;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+  position: relative; overflow: hidden;
+}
+[data-theme="light"] .service-card { background: rgba(255,255,255,0.8); }
+.service-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255,255,255,0.01));
+  opacity: 0; transition: opacity 0.3s;
+}
+.service-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  border-color: var(--card-color, var(--primary));
+}
+[data-theme="light"] .service-card:hover { box-shadow: 0 20px 60px rgba(0,0,0,0.12); }
+.service-card:hover::before { opacity: 1; }
+.service-icon {
+  width: 56px; height: 56px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; margin-bottom: 1.25rem;
+  background: rgba(var(--card-rgb, 16,185,129), 0.12);
+  border: 1px solid rgba(var(--card-rgb, 16,185,129), 0.2);
+  color: var(--card-color, var(--primary));
+  transition: all 0.3s;
+}
+.service-card:hover .service-icon {
+  background: var(--card-color, var(--primary));
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(var(--card-rgb, 16,185,129), 0.4);
+}
+.service-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: .6rem; }
+.service-desc { font-size: .875rem; color: var(--text2); line-height: 1.65; }
+.service-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1rem; }
+.service-tag {
+  font-size: .72rem; font-weight: 600; padding: .2rem .6rem;
+  border-radius: 100px; background: rgba(var(--card-rgb, 16,185,129), 0.1);
+  color: var(--card-color, var(--primary));
+  border: 1px solid rgba(var(--card-rgb, 16,185,129), 0.15);
+}
+
+/* ══════════════════════════════════════
+   STATS
+══════════════════════════════════════ */
+.stats-section {
+  background: linear-gradient(135deg, var(--primary-d) 0%, #0d9488 40%, var(--secondary) 100%);
+  position: relative; overflow: hidden;
+}
+.stats-section::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.stat-item { text-align: center; position: relative; z-index: 1; }
+.stat-num {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 800; color: #fff; line-height: 1;
+  text-shadow: 0 0 40px rgba(255,255,255,0.3);
+}
+.stat-plus { color: rgba(255,255,255,0.7); }
+.stat-label { font-size: .85rem; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 1px; margin-top: .5rem; font-weight: 500; }
+.stat-divider { width: 1px; background: rgba(255,255,255,0.15); align-self: stretch; }
+
+/* ══════════════════════════════════════
+   HOW WE WORK
+══════════════════════════════════════ */
+.process-section { background: var(--bg); }
+.process-step {
+  display: flex; gap: 1.5rem; align-items: flex-start;
+  padding: 1.5rem; border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all 0.3s;
+  backdrop-filter: blur(8px);
+}
+[data-theme="light"] .process-step { background: rgba(255,255,255,0.7); }
+.process-step:hover { border-color: var(--primary); transform: translateX(6px); }
+.step-num {
+  width: 48px; height: 48px; flex-shrink: 0;
+  border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff; box-shadow: 0 4px 16px rgba(16,185,129,0.35);
+}
+.step-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: .35rem; }
+.step-desc { font-size: .875rem; color: var(--text2); line-height: 1.6; }
+.process-visual {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 2rem;
+  backdrop-filter: blur(12px);
+}
+[data-theme="light"] .process-visual { background: rgba(255,255,255,0.75); }
+.progress-showcase { display: flex; flex-direction: column; gap: 1.25rem; }
+.proj-row { display: flex; flex-direction: column; gap: .4rem; }
+.proj-row-top { display: flex; justify-content: space-between; align-items: center; }
+.proj-row-name { font-size: .85rem; font-weight: 600; color: var(--text); }
+.proj-row-pct { font-size: .8rem; font-weight: 700; color: var(--primary); }
+.proj-bar-bg { height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+[data-theme="light"] .proj-bar-bg { background: rgba(0,0,0,0.07); }
+.proj-bar-fill { height: 100%; border-radius: 4px; transition: width 1.5s cubic-bezier(.4,0,.2,1); }
+
+/* ══════════════════════════════════════
+   TOOLS
+══════════════════════════════════════ */
+.tools-section { background: var(--bg2); }
+[data-theme="light"] .tools-section { background: #e8f2ff; }
+.tool-chip {
+  display: flex; align-items: center; gap: .6rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 100px; padding: .55rem 1.1rem;
+  font-size: .85rem; font-weight: 600; color: var(--text);
+  transition: all 0.2s; backdrop-filter: blur(8px);
+  cursor: default;
+}
+[data-theme="light"] .tool-chip { background: rgba(255,255,255,0.8); }
+.tool-chip:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(16,185,129,0.15); }
+.tool-chip i { font-size: 1rem; }
+.tools-grid { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; }
+
+/* ══════════════════════════════════════
+   PORTFOLIO PREVIEW
+══════════════════════════════════════ */
+.portfolio-section { background: var(--bg); }
+.portfolio-card {
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+  height: 100%;
+}
+[data-theme="light"] .portfolio-card { background: rgba(255,255,255,0.75); }
+.portfolio-card:hover { transform: translateY(-5px); box-shadow: 0 20px 50px rgba(0,0,0,0.25); border-color: var(--primary); }
+[data-theme="light"] .portfolio-card:hover { box-shadow: 0 20px 50px rgba(0,0,0,0.1); }
+.portfolio-card-img {
+  height: 180px;
+  background: linear-gradient(135deg, var(--grad-a, #10b981), var(--grad-b, #6366f1));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 3rem; position: relative; overflow: hidden;
+}
+.portfolio-card-img::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.3));
+}
+.portfolio-card-body { padding: 1.25rem; }
+.portfolio-card-type { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--primary); margin-bottom: .4rem; }
+.portfolio-card-name { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: .5rem; line-height: 1.35; }
+.portfolio-card-loc { font-size: .8rem; color: var(--text3); display: flex; align-items: center; gap: .3rem; }
+
+/* ══════════════════════════════════════
+   CTA
+══════════════════════════════════════ */
+.cta-section {
+  background: var(--bg2);
+  position: relative; overflow: hidden;
+}
+[data-theme="light"] .cta-section { background: #e8f2ff; }
+.cta-section::before {
+  content: ''; position: absolute;
+  width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(16,185,129,0.08), transparent 70%);
+  top: -200px; left: 50%; transform: translateX(-50%);
+}
+.cta-box {
+  background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(99,102,241,0.08) 100%);
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: 24px; padding: 4rem 3rem;
+  text-align: center; position: relative; z-index: 1;
+  backdrop-filter: blur(12px);
+}
+[data-theme="light"] .cta-box { background: rgba(255,255,255,0.7); }
+.cta-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800; color: var(--text); margin-bottom: 1rem;
+}
+
+/* ══════════════════════════════════════
+   FOOTER
+══════════════════════════════════════ */
+.gm-footer {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 3rem 0 1.5rem;
+}
+[data-theme="light"] .gm-footer { background: #dce8fa; }
+.footer-logo-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem; font-weight: 700; color: var(--text);
+}
+.footer-tagline { font-size: .8rem; color: var(--primary); font-style: italic; margin-top: .2rem; }
+.footer-desc { font-size: .85rem; color: var(--text2); line-height: 1.7; margin-top: .75rem; max-width: 280px; }
+.footer-heading { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); margin-bottom: .85rem; }
+.footer-links { list-style: none; display: flex; flex-direction: column; gap: .45rem; }
+.footer-links a { color: var(--text2); text-decoration: none; font-size: .875rem; transition: color 0.2s; }
+.footer-links a:hover { color: var(--primary); }
+.footer-bottom { border-top: 1px solid var(--border); margin-top: 2.5rem; padding-top: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.footer-copy { font-size: .8rem; color: var(--text3); }
+.footer-copy span { color: var(--primary); }
+
+/* ══════════════════════════════════════
+   ANIMATIONS / REVEAL
+══════════════════════════════════════ */
+.reveal {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ══════════════════════════════════════
+   MOBILE HAMBURGER
+══════════════════════════════════════ */
+.hamburger {
+  display: none; background: none; border: none;
+  color: var(--text); font-size: 1.3rem; cursor: pointer; padding: .25rem;
+}
+@media (max-width: 991px) {
+  .hamburger { display: block; }
+  .nav-links { display: none; }
+  .nav-links.open {
+    display: flex; flex-direction: column;
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: var(--bg2); border-top: 1px solid var(--border);
+    padding: 1rem; gap: .35rem;
+  }
+  [data-theme="light"] .nav-links.open { background: #f0f6ff; }
+  .nav-cta { width: fit-content; }
+  .hero-stat-divider { display: none; }
+  .cta-box { padding: 2.5rem 1.5rem; }
+  .stat-divider { display: none; }
+}
+@media (max-width: 576px) {
+  section { padding: 4rem 0; }
+  .hero-btns { flex-direction: column; }
+  .btn-hero-primary, .btn-hero-outline { justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAVBAR ──────────────────────────────────── -->
+<nav class="gm-nav" id="gmNav">
+  <div class="container">
+    <div class="d-flex align-items-center justify-content-between">
+      <a href="{{ url_for('home') }}" class="nav-logo">
+        <img src="{{ url_for('static', filename='img/Geospatial Maven Logo.png') }}" alt="Geospatial Maven">
+        <div>
+          <div class="nav-logo-text">Geospatial Maven</div>
+          <div class="nav-logo-sub">Mapping a Sustainable World</div>
+        </div>
+      </a>
+
+      <div class="nav-links" id="navLinks">
+        <a href="#services" class="nav-link-item">Services</a>
+        <a href="#process"  class="nav-link-item">How We Work</a>
+        <a href="#portfolio" class="nav-link-item">Portfolio</a>
+        <a href="#tools"    class="nav-link-item">Tools</a>
+        <a href="#contact"  class="nav-link-item">Contact</a>
+        <button class="theme-btn-nav" onclick="toggleTheme()" title="Toggle theme">
+          <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+        </button>
+        <a href="{{ url_for('login') }}" class="nav-link-item nav-cta">
+          <i class="bi bi-box-arrow-in-right"></i> Sign In
+        </a>
+      </div>
+
+      <div class="d-flex align-items-center gap-2 d-lg-none">
+        <button class="theme-btn-nav" onclick="toggleTheme()" title="Toggle theme">
+          <i class="bi bi-moon-stars-fill" id="themeIconMobile"></i>
+        </button>
+        <button class="hamburger" id="hamburger">
+          <i class="bi bi-list"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ────────────────────────────────────── -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6">
+        <div class="hero-content">
+          <div class="hero-badge"><i class="bi bi-geo-alt-fill"></i> GIS & Remote Sensing Consultancy</div>
+          <h1 class="hero-title">
+            Turning Earth<br>Data Into <span class="grad">Actionable</span><br>Insights
+          </h1>
+          <p class="hero-sub">
+            We combine satellite imagery, GIS analysis, and field expertise to help organizations make informed decisions about land, environment, and climate.
+          </p>
+          <div class="hero-btns">
+            <a href="#portfolio" class="btn-hero-primary">
+              <i class="bi bi-map"></i> Explore Our Work
+            </a>
+            <a href="#contact" class="btn-hero-outline">
+              <i class="bi bi-envelope"></i> Get In Touch
+            </a>
+          </div>
+          <div class="hero-stats">
+            <div>
+              <div class="hero-stat-num" data-count="40">0</div>
+              <div class="hero-stat-label">Projects Done</div>
+            </div>
+            <div>
+              <div class="hero-stat-num" data-count="15">0</div>
+              <div class="hero-stat-label">Clients Served</div>
+            </div>
+            <div>
+              <div class="hero-stat-num" data-count="8">0</div>
+              <div class="hero-stat-label">Countries</div>
+            </div>
+            <div>
+              <div class="hero-stat-num" data-count="10">0</div>
+              <div class="hero-stat-label">Years Experience</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="hero-visual">
+          <div class="hero-card-wrap">
+            <div class="float-badge float-badge-1">
+              <i class="bi bi-satellite" style="color:#10b981"></i> Live SAR Analysis
+            </div>
+            <div class="float-badge float-badge-2">
+              <i class="bi bi-check-circle-fill" style="color:#10b981"></i> 95% Accuracy
+            </div>
+            <div class="hero-map-card">
+              <div class="map-header">
+                <span class="map-title">Active Project Monitor</span>
+                <div class="map-dots">
+                  <div class="map-dot" style="background:#ef4444"></div>
+                  <div class="map-dot" style="background:#f59e0b"></div>
+                  <div class="map-dot" style="background:#10b981"></div>
+                </div>
+              </div>
+              <div class="coord-grid">
+                <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+                  <!-- River path -->
+                  <path d="M 20 200 Q 80 180 120 200 Q 160 220 200 190 Q 240 160 300 170 Q 360 180 400 160" fill="none" stroke="rgba(6,182,212,0.5)" stroke-width="3"/>
+                  <!-- Contour lines -->
+                  <path d="M 50 250 Q 150 230 200 240 Q 280 255 370 235" fill="none" stroke="rgba(16,185,129,0.2)" stroke-width="1.5"/>
+                  <path d="M 30 150 Q 120 130 180 145 Q 250 160 350 140" fill="none" stroke="rgba(16,185,129,0.15)" stroke-width="1.5"/>
+                  <path d="M 60 90 Q 140 75 210 85 Q 300 100 380 80" fill="none" stroke="rgba(16,185,129,0.12)" stroke-width="1.5"/>
+                  <!-- Flood zone polygon -->
+                  <polygon points="120,180 180,165 230,175 210,210 150,215" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.3)" stroke-width="1"/>
+                  <!-- Scan line animation -->
+                  <line x1="0" y1="0" x2="400" y2="0" stroke="rgba(16,185,129,0.6)" stroke-width="1.5">
+                    <animate attributeName="y1" values="0;300;0" dur="4s" repeatCount="indefinite"/>
+                    <animate attributeName="y2" values="0;300;0" dur="4s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.6;0;0.6" dur="4s" repeatCount="indefinite"/>
+                  </line>
+                </svg>
+                <div class="map-pins">
+                  <div class="map-pin" style="left:30%;top:65%;background:#10b981;color:#10b981"></div>
+                  <div class="map-pin" style="left:55%;top:55%;background:#6366f1;color:#6366f1;animation-delay:.8s"></div>
+                  <div class="map-pin" style="left:75%;top:45%;background:#f59e0b;color:#f59e0b;animation-delay:1.5s"></div>
+                  <div class="map-pin" style="left:20%;top:30%;background:#06b6d4;color:#06b6d4;animation-delay:2.2s"></div>
+                </div>
+              </div>
+              <div class="map-metrics">
+                <div class="map-metric">
+                  <div class="map-metric-val">28%</div>
+                  <div class="map-metric-key">Flood Risk — Sindh</div>
+                </div>
+                <div class="map-metric">
+                  <div class="map-metric-val" style="color:#6366f1">4</div>
+                  <div class="map-metric-key">Active Projects</div>
+                </div>
+                <div class="map-metric">
+                  <div class="map-metric-val" style="color:#f59e0b">SAR</div>
+                  <div class="map-metric-key">Sentinel-1 Band</div>
+                </div>
+                <div class="map-metric">
+                  <div class="map-metric-val" style="color:#06b6d4">GEE</div>
+                  <div class="map-metric-key">Platform</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SERVICES ─────────────────────────────────── -->
+<section class="services-section" id="services">
+  <div class="container">
+    <div class="row mb-5 reveal">
+      <div class="col-lg-6">
+        <div class="section-badge">What We Do</div>
+        <h2 class="section-title">Expert Geospatial <span class="accent">Services</span></h2>
+        <div class="divider-line"></div>
+        <p class="section-sub">From flood risk mapping to urban heat analysis — we deliver satellite-driven insights across South Asia and beyond.</p>
+      </div>
+    </div>
+    <div class="row g-4">
+      {% set services = [
+        ('bi-bar-chart-line', '#6366f1', '99,102,241',    'GIS Analysis',         'Spatial analysis, land use mapping, change detection, and geostatistical modeling using multi-source satellite data.', ['ArcGIS Pro', 'QGIS', 'GeoPandas']),
+        ('bi-satellite',      '#10b981', '16,185,129',    'Remote Sensing',        'Satellite image processing from Sentinel, Landsat, and MODIS for LULC classification, NDVI, SAR analysis.', ['Google Earth Engine', 'SNAP', 'ERDAS']),
+        ('bi-thermometer-half','#06b6d4','6,182,212',     'Climate Assessment',    'Climate change impact analysis, drought monitoring, temperature trend studies, and environmental modeling.', ['Python', 'R', 'CDO']),
+        ('bi-water',          '#3b82f6', '59,130,246',    'Flood Risk Mapping',    'Hydrological modeling, flood extent mapping using SAR imagery, DEM-based inundation analysis for disaster preparedness.', ['HEC-RAS', 'SWAT', 'Sentinel-1']),
+        ('bi-geo-alt',        '#ef4444', '239,68,68',     'Fieldwork & Survey',    'Ground-truth data collection, drone surveys, GPS-based mapping, and field validation for geospatial projects.', ['UAV / Drone', 'RTK GPS', 'Field GIS']),
+        ('bi-file-earmark-text','#8b5cf6','139,92,246',   'Technical Reports',     'Scientific report writing, cartographic layout design, policy briefs, and publication-ready map production.', ['LaTeX', 'ArcGIS Layout', 'QGIS Print'])
+      ] %}
+      {% for icon, color, rgb, title, desc, tags in services %}
+      <div class="col-md-6 col-lg-4 reveal">
+        <div class="service-card" style="--card-color:{{ color }}; --card-rgb:{{ rgb }}">
+          <div class="service-icon"><i class="bi {{ icon }}"></i></div>
+          <div class="service-title">{{ title }}</div>
+          <p class="service-desc">{{ desc }}</p>
+          <div class="service-tags">
+            {% for tag in tags %}
+            <span class="service-tag">{{ tag }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS ────────────────────────────────────── -->
+<section class="stats-section py-5">
+  <div class="container">
+    <div class="row g-4 align-items-center text-center">
+      <div class="col-6 col-md-3 reveal">
+        <div class="stat-item">
+          <div class="stat-num"><span class="counter" data-count="40">0</span><span class="stat-plus">+</span></div>
+          <div class="stat-label">Projects Completed</div>
+        </div>
+      </div>
+      <div class="d-none d-md-block col-md-auto"><div class="stat-divider" style="height:70px"></div></div>
+      <div class="col-6 col-md-3 reveal">
+        <div class="stat-item">
+          <div class="stat-num"><span class="counter" data-count="15">0</span><span class="stat-plus">+</span></div>
+          <div class="stat-label">Clients & Partners</div>
+        </div>
+      </div>
+      <div class="d-none d-md-block col-md-auto"><div class="stat-divider" style="height:70px"></div></div>
+      <div class="col-6 col-md-3 reveal">
+        <div class="stat-item">
+          <div class="stat-num"><span class="counter" data-count="8">0</span><span class="stat-plus">+</span></div>
+          <div class="stat-label">Countries Covered</div>
+        </div>
+      </div>
+      <div class="d-none d-md-block col-md-auto"><div class="stat-divider" style="height:70px"></div></div>
+      <div class="col-6 col-md-2 reveal">
+        <div class="stat-item">
+          <div class="stat-num"><span class="counter" data-count="10">0</span><span class="stat-plus">+</span></div>
+          <div class="stat-label">Years Experience</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW WE WORK ──────────────────────────────── -->
+<section class="process-section" id="process">
+  <div class="container">
+    <div class="row g-5 align-items-center">
+      <div class="col-lg-5 reveal">
+        <div class="section-badge">Our Process</div>
+        <h2 class="section-title">How We <span class="accent">Deliver</span></h2>
+        <div class="divider-line"></div>
+        <p class="section-sub mb-4">A structured, transparent workflow from project inception to final delivery.</p>
+        <div class="d-flex flex-column gap-3">
+          {% for num, title, desc in [
+            ('01', 'TOR & Scoping',       'We define clear Terms of Reference with objectives, deliverables, timeline, and budget.'),
+            ('02', 'Data Acquisition',    'Collecting and preprocessing satellite imagery, field data, and auxiliary datasets.'),
+            ('03', 'Analysis & Modeling', 'GIS analysis, remote sensing classification, hydrological or climate modeling.'),
+            ('04', 'Report & Delivery',   'Peer-reviewed technical reports, cartographic outputs, and stakeholder-ready summaries.'),
+          ] %}
+          <div class="process-step reveal">
+            <div class="step-num">{{ num }}</div>
+            <div>
+              <div class="step-title">{{ title }}</div>
+              <div class="step-desc">{{ desc }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col-lg-7 reveal">
+        <div class="process-visual">
+          <div class="mb-3 d-flex align-items-center gap-2">
+            <i class="bi bi-activity" style="color:var(--primary);font-size:1.1rem"></i>
+            <span style="font-weight:700;font-size:.9rem;color:var(--text)">Active Project Progress</span>
+          </div>
+          <div class="progress-showcase">
+            {% for name, pct, color in [
+              ('Flood Risk Assessment – Sindh Province',     28,  '#10b981'),
+              ('Land Cover Change Detection – Mangroves',    0,   '#6366f1'),
+              ('Urban Heat Island – Lahore Metro',           100, '#3b82f6'),
+              ('Drought Monitoring – Balochistan',           65,  '#f59e0b'),
+              ('GLOF Susceptibility – Gilgit-Baltistan',     42,  '#8b5cf6'),
+            ] %}
+            <div class="proj-row">
+              <div class="proj-row-top">
+                <span class="proj-row-name">{{ name }}</span>
+                <span class="proj-row-pct" style="color:{{ color }}">{{ pct }}%</span>
+              </div>
+              <div class="proj-bar-bg">
+                <div class="proj-bar-fill animated-bar" style="background:linear-gradient(90deg,{{ color }},{{ color }}88);width:0;--tw:{{ pct }}%"></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TOOLS ────────────────────────────────────── -->
+<section class="tools-section" id="tools">
+  <div class="container">
+    <div class="text-center mb-5 reveal">
+      <div class="section-badge">Technology Stack</div>
+      <h2 class="section-title">Tools & <span class="accent">Platforms</span></h2>
+      <div class="divider-line mx-auto"></div>
+      <p class="section-sub mx-auto text-center">Industry-standard geospatial tools combined with modern programming for cutting-edge analysis.</p>
+    </div>
+    <div class="tools-grid reveal">
+      {% for icon, name, color in [
+        ('bi-map',               'ArcGIS Pro',           '#6366f1'),
+        ('bi-layers',            'QGIS',                 '#10b981'),
+        ('bi-globe2',            'Google Earth Engine',  '#f59e0b'),
+        ('bi-satellite',         'SNAP / ESA',           '#3b82f6'),
+        ('bi-code-slash',        'Python',               '#06b6d4'),
+        ('bi-graph-up',          'R Statistical',        '#8b5cf6'),
+        ('bi-water',             'HEC-RAS',              '#ef4444'),
+        ('bi-cloud-download',    'ERDAS IMAGINE',        '#f97316'),
+        ('bi-bar-chart',         'MATLAB',               '#e11d48'),
+        ('bi-cpu',               'Deep Learning / AI',   '#10b981'),
+        ('bi-camera',            'UAV / Drone',          '#f59e0b'),
+        ('bi-geo',               'RTK GPS Survey',       '#6366f1'),
+      ] %}
+      <div class="tool-chip" style="--tc:{{ color }}">
+        <i class="bi {{ icon }}" style="color:{{ color }}"></i> {{ name }}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ── PORTFOLIO PREVIEW ─────────────────────────── -->
+<section class="portfolio-section" id="portfolio">
+  <div class="container">
+    <div class="row align-items-end mb-5 reveal">
+      <div class="col-lg-7">
+        <div class="section-badge">Our Work</div>
+        <h2 class="section-title">Featured <span class="accent">Projects</span></h2>
+        <div class="divider-line"></div>
+        <p class="section-sub">A sample of our geospatial analysis and remote sensing projects across South and Central Asia.</p>
+      </div>
+      <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
+        <a href="{{ url_for('accomplished_list') }}" class="btn-hero-outline">
+          <i class="bi bi-grid-3x3-gap"></i> View Full Portfolio
+        </a>
+      </div>
+    </div>
+    <div class="row g-4">
+      {% for grad_a, grad_b, emoji, ptype, name, loc in [
+        ('#10b981','#3b82f6', '🌊', 'Flood Risk Assessment',        'Flood Risk Assessment – Sindh Province',              'Sindh, Pakistan'),
+        ('#6366f1','#8b5cf6', '🌿', 'Land Cover Change Detection',  'Mangrove Ecosystem Change Detection – Coastal Belt',   'Sindh & Balochistan'),
+        ('#f59e0b','#ef4444', '🌡️', 'Urban Heat Island Analysis',   'Urban Heat Island Mapping – Lahore Metropolitan',     'Lahore, Pakistan'),
+        ('#06b6d4','#6366f1', '🏔️', 'GLOF Susceptibility',         'Glacial Lake Outburst Flood Risk – Gilgit-Baltistan', 'Northern Pakistan'),
+        ('#10b981','#f59e0b', '🌾', 'Crop Monitoring',              'Crop Stress & Yield Assessment – Punjab Province',    'Punjab, Pakistan'),
+        ('#8b5cf6','#3b82f6', '🏙️', 'Urban Growth Analysis',       'Multi-temporal Urban Sprawl Mapping – Peshawar',      'Peshawar, Pakistan'),
+      ] %}
+      <div class="col-sm-6 col-lg-4 reveal">
+        <div class="portfolio-card">
+          <div class="portfolio-card-img" style="--grad-a:{{ grad_a }};--grad-b:{{ grad_b }}">
+            <span style="font-size:2.5rem;position:relative;z-index:1">{{ emoji }}</span>
+          </div>
+          <div class="portfolio-card-body">
+            <div class="portfolio-card-type">{{ ptype }}</div>
+            <div class="portfolio-card-name">{{ name }}</div>
+            <div class="portfolio-card-loc"><i class="bi bi-geo-alt"></i> {{ loc }}</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ──────────────────────────────────────── -->
+<section class="cta-section" id="contact">
+  <div class="container">
+    <div class="cta-box reveal">
+      <div class="section-badge mx-auto">Start a Project</div>
+      <h2 class="cta-title mt-2">Ready to map your<br><span style="color:var(--primary)">next challenge?</span></h2>
+      <p style="color:var(--text2);font-size:1.05rem;max-width:520px;margin:1rem auto 2rem;line-height:1.7">
+        Whether it's flood mapping, land cover analysis, or a full GIS consultancy — let's talk about how we can help.
+      </p>
+      <div class="d-flex gap-3 justify-content-center flex-wrap">
+        <a href="mailto:geospatialmaven@gmail.com" class="btn-hero-primary">
+          <i class="bi bi-envelope-fill"></i> geospatialmaven@gmail.com
+        </a>
+        <a href="{{ url_for('login') }}" class="btn-hero-outline">
+          <i class="bi bi-person-circle"></i> Client Portal
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ───────────────────────────────────── -->
+<footer class="gm-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <img src="{{ url_for('static', filename='img/Geospatial Maven Logo.png') }}" alt="" style="height:36px;width:auto">
+          <div>
+            <div class="footer-logo-text">Geospatial Maven</div>
+            <div class="footer-tagline">Mapping a Sustainable World</div>
+          </div>
+        </div>
+        <p class="footer-desc">GIS & Remote Sensing consultancy delivering satellite-driven insights for environment, climate, and disaster risk management.</p>
+      </div>
+      <div class="col-6 col-lg-2 offset-lg-1">
+        <div class="footer-heading">Services</div>
+        <ul class="footer-links">
+          <li><a href="#services">GIS Analysis</a></li>
+          <li><a href="#services">Remote Sensing</a></li>
+          <li><a href="#services">Flood Mapping</a></li>
+          <li><a href="#services">Climate Assessment</a></li>
+          <li><a href="#services">Technical Reports</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-lg-2">
+        <div class="footer-heading">Company</div>
+        <ul class="footer-links">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#process">How We Work</a></li>
+          <li><a href="#portfolio">Portfolio</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="{{ url_for('login') }}">Team Login</a></li>
+        </ul>
+      </div>
+      <div class="col-lg-3">
+        <div class="footer-heading">Contact</div>
+        <ul class="footer-links">
+          <li><a href="mailto:geospatialmaven@gmail.com"><i class="bi bi-envelope me-2" style="color:var(--primary)"></i>geospatialmaven@gmail.com</a></li>
+          <li><a href="#"><i class="bi bi-geo-alt me-2" style="color:var(--primary)"></i>Pakistan · South Asia</a></li>
+          <li><a href="https://github.com/geospatialmaven" target="_blank"><i class="bi bi-github me-2" style="color:var(--primary)"></i>GitHub</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 <span>Geospatial Maven</span>. All rights reserved.</div>
+      <div class="footer-copy">Built with <span>♥</span> for a Sustainable World</div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Theme ──────────────────────────────────────
+function toggleTheme() {
+  var root = document.getElementById('htmlRoot');
+  var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  localStorage.setItem('gm-theme', next);
+  applyThemeIcon(next);
+}
+function applyThemeIcon(t) {
+  ['themeIcon','themeIconMobile'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.className = t === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+  });
+}
+applyThemeIcon(document.getElementById('htmlRoot').getAttribute('data-theme') || 'light');
+
+// ── Navbar shrink on scroll ────────────────────
+window.addEventListener('scroll', function() {
+  document.getElementById('gmNav').classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// ── Hamburger ─────────────────────────────────
+document.getElementById('hamburger').addEventListener('click', function() {
+  document.getElementById('navLinks').classList.toggle('open');
+  this.querySelector('i').className =
+    document.getElementById('navLinks').classList.contains('open')
+      ? 'bi bi-x-lg' : 'bi bi-list';
+});
+// Close nav on link click (mobile)
+document.querySelectorAll('#navLinks .nav-link-item').forEach(function(a) {
+  a.addEventListener('click', function() {
+    document.getElementById('navLinks').classList.remove('open');
+    document.querySelector('#hamburger i').className = 'bi bi-list';
+  });
+});
+
+// ── Scroll reveal ──────────────────────────────
+var observer = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }
+  });
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(function(el) { observer.observe(el); });
+
+// ── Animated counters ─────────────────────────
+function animateCounter(el) {
+  var target = parseInt(el.getAttribute('data-count'));
+  var duration = 1800; var start = performance.now();
+  function step(now) {
+    var progress = Math.min((now - start) / duration, 1);
+    var ease = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(ease * target);
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+var counterObs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('.counter,[data-count]').forEach(animateCounter);
+      counterObs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.hero-stats,.stats-section').forEach(function(el) { counterObs.observe(el); });
+
+// ── Animated progress bars ────────────────────
+setTimeout(function() {
+  document.querySelectorAll('.animated-bar').forEach(function(bar) {
+    var tw = getComputedStyle(bar).getPropertyValue('--tw').trim();
+    if (tw) bar.style.width = tw;
+  });
+}, 600);
+</script>
+</body>
+</html>
